@@ -19,7 +19,7 @@
             color: #6ea8fe; text-decoration: none; font-size: 0.8rem;
         }
     </style>
-    <script src="/vcenter-proxy/vsphere-client/webconsole/api/wmks/lib/wmks.min.js"></script>
+    <script src="/vcenter-vps/wmks.js"></script>
 </head>
 <body>
     <div id="overlay">
