@@ -1,210 +1,111 @@
 <x-filament-panels::page>
-    @php
-        $instances = $this->getInstances();
-    @endphp
+    @php $instances = $this->getInstances(); @endphp
 
     @if($instances->isEmpty())
-        <div class="fi-section rounded-xl ring-1 ring-gray-950/5 dark:ring-white/10 bg-white dark:bg-gray-900"
-             style="padding: 2rem; text-align: center;">
-            <p class="text-gray-500 dark:text-gray-400">You have no active VPS instances.</p>
-        </div>
+        <x-filament::section>
+            <p class="text-center text-sm text-gray-500 dark:text-gray-400">You have no active VPS instances.</p>
+        </x-filament::section>
     @else
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1rem;">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             @foreach($instances as $instance)
                 @php
-                    $order      = $instance->order;
-                    $pack       = $order->packPrice->pack;
-                    $isRunning  = $instance->state_cache === 'POWERED_ON';
-                    $isStopped  = $instance->state_cache === 'POWERED_OFF';
-                    $isPending  = $instance->isAwaitingInstall();
-                    $isReady    = $instance->isReady();
-                    $uploadLib  = config('vcenter-vps.upload_library_id');
+                    $order     = $instance->order;
+                    $pack      = $order->packPrice->pack;
+                    $isPending = $instance->isAwaitingInstall();
+                    $isRunning = $instance->isRunning();
+                    $isStopped = $instance->isStopped();
                 @endphp
 
-                <div class="fi-section rounded-xl ring-1 ring-gray-950/5 dark:ring-white/10 bg-white dark:bg-gray-900"
-                     style="padding: 1.25rem;">
+                <div class="flex flex-col overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
 
-                    {{-- Header --}}
-                    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
-                        <div style="width: 2.5rem; height: 2.5rem; display: flex; align-items: center; justify-content: center;
-                                    border-radius: 0.5rem; flex-shrink: 0;"
-                             class="bg-primary-50 dark:bg-primary-500/10">
-                            <svg style="width: 1.25rem; height: 1.25rem;" class="text-primary-600 dark:text-primary-400"
-                                 xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/>
-                                <line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/>
-                            </svg>
+                    {{-- Card header --}}
+                    <div class="flex items-center gap-3 border-b border-gray-100 px-4 py-3 dark:border-white/10">
+                        <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-primary-50 dark:bg-primary-500/10">
+                            <x-filament::icon
+                                icon="tabler-server"
+                                class="h-5 w-5 text-primary-600 dark:text-primary-400"
+                            />
                         </div>
-                        <div style="flex: 1; min-width: 0;">
-                            <div style="font-weight: 600; font-size: 0.9rem;" class="text-gray-950 dark:text-white truncate">
+
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-sm font-semibold text-gray-950 dark:text-white">
                                 {{ $pack->name }}
-                            </div>
-                            <div style="font-size: 0.75rem;" class="text-gray-500 dark:text-gray-400">
+                            </p>
+                            <p class="truncate text-xs text-gray-500 dark:text-gray-400">
                                 {{ $instance->vm_ip ?? 'IP not assigned' }}
-                            </div>
+                            </p>
                         </div>
 
-                        {{-- Status badge --}}
                         @if($isPending)
-                            <span style="font-size: 0.7rem; font-weight: 600; padding: 0.2rem 0.6rem; border-radius: 9999px;"
-                                  class="bg-warning-100 text-warning-700 dark:bg-warning-500/20 dark:text-warning-400">
-                                Installing
-                            </span>
+                            <x-filament::badge color="warning">Installing</x-filament::badge>
+                        @elseif($isRunning)
+                            <x-filament::badge color="success">Running</x-filament::badge>
+                        @elseif($isStopped)
+                            <x-filament::badge color="danger">Stopped</x-filament::badge>
                         @else
-                            <span style="font-size: 0.7rem; font-weight: 600; padding: 0.2rem 0.6rem; border-radius: 9999px;"
-                                  @class([
-                                      'bg-success-100 text-success-700 dark:bg-success-500/20 dark:text-success-400' => $isRunning,
-                                      'bg-danger-100 text-danger-700 dark:bg-danger-500/20 dark:text-danger-400'   => $isStopped,
-                                      'bg-gray-100 text-gray-600 dark:bg-gray-500/20 dark:text-gray-400'           => !$isRunning && !$isStopped,
-                                  ])>
-                                {{ $isRunning ? 'Running' : ($isStopped ? 'Stopped' : 'Unknown') }}
-                            </span>
+                            <x-filament::badge color="gray">Unknown</x-filament::badge>
                         @endif
                     </div>
 
-                    {{-- Specs --}}
-                    @php $price = $instance->order->packPrice; @endphp
-                    <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                    {{-- Specs + expiry --}}
+                    <div class="flex flex-wrap gap-x-4 gap-y-1 px-4 py-3">
+                        @php $price = $order->packPrice; @endphp
                         @if($price->cores)
-                            <div style="font-size: 0.75rem;" class="text-gray-600 dark:text-gray-400">
-                                <span class="font-medium">{{ $price->cores }}</span> vCPU
-                            </div>
+                            <span class="text-xs text-gray-500 dark:text-gray-400">
+                                <span class="font-medium text-gray-700 dark:text-gray-300">{{ $price->cores }}</span> vCPU
+                            </span>
                         @endif
                         @if($price->memory)
-                            <div style="font-size: 0.75rem;" class="text-gray-600 dark:text-gray-400">
-                                <span class="font-medium">{{ number_format($price->memory / 1024, 1) }}</span> GB RAM
-                            </div>
+                            <span class="text-xs text-gray-500 dark:text-gray-400">
+                                <span class="font-medium text-gray-700 dark:text-gray-300">{{ number_format($price->memory / 1024, 1) }}</span> GB RAM
+                            </span>
                         @endif
                         @if($price->disk)
-                            <div style="font-size: 0.75rem;" class="text-gray-600 dark:text-gray-400">
-                                <span class="font-medium">{{ $price->disk }}</span> GB Disk
-                            </div>
+                            <span class="text-xs text-gray-500 dark:text-gray-400">
+                                <span class="font-medium text-gray-700 dark:text-gray-300">{{ $price->disk }}</span> GB Disk
+                            </span>
+                        @endif
+                        @if($order->expires_at)
+                            <span class="text-xs text-gray-500 dark:text-gray-400">
+                                Expires {{ $order->expires_at->diffForHumans() }}
+                            </span>
                         @endif
                     </div>
 
-                    @if($order->expires_at)
-                        <div style="font-size: 0.75rem; margin-bottom: 1rem;" class="text-gray-500 dark:text-gray-400">
-                            Expires {{ $order->expires_at->diffForHumans() }}
-                        </div>
-                    @endif
+                    {{-- Actions --}}
+                    <div class="mt-auto flex flex-wrap items-center gap-2 border-t border-gray-100 px-4 py-3 dark:border-white/10">
+                        <a href="{{ \Fywolf\VcenterVps\Filament\App\Pages\VpsConsole::getUrl($instance->id) }}"
+                           class="fi-btn fi-btn-size-sm inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold shadow-sm ring-1
+                                  bg-primary-600 text-white ring-primary-600 hover:bg-primary-500
+                                  dark:bg-primary-500 dark:ring-primary-500 dark:hover:bg-primary-400">
+                            Manage
+                        </a>
 
-                    {{-- ── INSTALLING STATE ── --}}
-                    @if($isPending)
-                        <div style="border-radius: 0.5rem; padding: 0.875rem; margin-bottom: 1rem;"
-                             class="bg-warning-50 dark:bg-warning-500/10 ring-1 ring-warning-200 dark:ring-warning-500/20">
-                            <p style="font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;"
-                               class="text-warning-800 dark:text-warning-300">
-                                OS installation in progress
-                            </p>
-                            <p style="font-size: 0.75rem;" class="text-warning-700 dark:text-warning-400">
-                                Open the console to complete the installation. Click "Done" when finished.
-                            </p>
-                        </div>
-
-                        {{-- Console for install --}}
-                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem;">
-                            <button wire:click="openConsole({{ $instance->id }})"
-                                    style="font-size: 0.75rem; padding: 0.4rem 0.75rem; border-radius: 0.375rem; cursor: pointer; border: none;"
-                                    class="bg-primary-100 hover:bg-primary-200 text-primary-700 dark:bg-primary-500/20 dark:hover:bg-primary-500/30 dark:text-primary-400">
-                                Open Console
-                            </button>
-                            <button wire:click="markInstallComplete({{ $instance->id }})"
-                                    wire:confirm="Confirm the OS installation is complete?"
-                                    style="font-size: 0.75rem; padding: 0.4rem 0.75rem; border-radius: 0.375rem; cursor: pointer; border: none;"
-                                    class="bg-success-100 hover:bg-success-200 text-success-700 dark:bg-success-500/20 dark:hover:bg-success-500/30 dark:text-success-400">
-                                Installation Done
-                            </button>
-                        </div>
-
-                        {{-- ISO swap --}}
-                        @if($uploadLib)
-                            <details style="margin-top: 0.5rem;">
-                                <summary style="font-size: 0.75rem; cursor: pointer; user-select: none;"
-                                         class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
-                                    Use a different ISO
-                                </summary>
-                                <div style="margin-top: 0.75rem; padding: 0.75rem; border-radius: 0.5rem;"
-                                     class="bg-gray-50 dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-white/10">
-
-                                    {{-- URL source --}}
-                                    <p style="font-size: 0.7rem; font-weight: 600; margin-bottom: 0.4rem;"
-                                       class="text-gray-600 dark:text-gray-300">From URL</p>
-                                    <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem;">
-                                        <input wire:model="isoUrls.{{ $instance->id }}"
-                                               type="url"
-                                               placeholder="https://example.com/debian.iso"
-                                               style="flex: 1; font-size: 0.75rem; padding: 0.35rem 0.5rem; border-radius: 0.375rem;"
-                                               class="border border-gray-300 dark:border-white/20 bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
-                                        <button wire:click="swapIsoFromUrl({{ $instance->id }})"
-                                                style="font-size: 0.75rem; padding: 0.35rem 0.65rem; border-radius: 0.375rem; cursor: pointer; white-space: nowrap; border: none;"
-                                                class="bg-gray-200 hover:bg-gray-300 text-gray-700 dark:bg-white/10 dark:hover:bg-white/20 dark:text-gray-200">
-                                            Attach
-                                        </button>
-                                    </div>
-
-                                    {{-- File upload --}}
-                                    <p style="font-size: 0.7rem; font-weight: 600; margin-bottom: 0.4rem;"
-                                       class="text-gray-600 dark:text-gray-300">Upload ISO (max 2 GB)</p>
-                                    <div style="display: flex; gap: 0.5rem; align-items: center;">
-                                        <input wire:model="isoFile"
-                                               type="file"
-                                               accept=".iso"
-                                               style="flex: 1; font-size: 0.75rem;"
-                                               class="text-gray-700 dark:text-gray-300">
-                                        <button wire:click="swapIsoFromFile({{ $instance->id }})"
-                                                style="font-size: 0.75rem; padding: 0.35rem 0.65rem; border-radius: 0.375rem; cursor: pointer; white-space: nowrap; border: none;"
-                                                class="bg-gray-200 hover:bg-gray-300 text-gray-700 dark:bg-white/10 dark:hover:bg-white/20 dark:text-gray-200">
-                                            Upload
-                                        </button>
-                                    </div>
-                                </div>
-                            </details>
+                        @if($isRunning)
+                            <a href="{{ route('vcenter-vps.console', $instance->id) }}"
+                               target="_blank" rel="noopener"
+                               class="fi-btn fi-btn-size-sm inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold shadow-sm ring-1
+                                      bg-white text-gray-950 ring-gray-950/10 hover:bg-gray-50
+                                      dark:bg-gray-800 dark:text-white dark:ring-white/20 dark:hover:bg-gray-700">
+                                <x-filament::icon icon="tabler-terminal" class="h-3.5 w-3.5"/>
+                                Console
+                            </a>
                         @endif
 
-                    {{-- ── READY STATE ── --}}
-                    @else
-                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                            @if($isRunning)
-                                <button wire:click="powerOff({{ $instance->id }})"
-                                        wire:confirm="Stop your VPS?"
-                                        style="font-size: 0.75rem; padding: 0.4rem 0.75rem; border-radius: 0.375rem; cursor: pointer; border: none;"
-                                        class="bg-danger-100 hover:bg-danger-200 text-danger-700 dark:bg-danger-500/20 dark:hover:bg-danger-500/30 dark:text-danger-400">
-                                    Stop
-                                </button>
-                                <button wire:click="reboot({{ $instance->id }})"
-                                        wire:confirm="Restart your VPS?"
-                                        style="font-size: 0.75rem; padding: 0.4rem 0.75rem; border-radius: 0.375rem; cursor: pointer; border: none;"
-                                        class="bg-warning-100 hover:bg-warning-200 text-warning-700 dark:bg-warning-500/20 dark:hover:bg-warning-500/30 dark:text-warning-400">
-                                    Restart
-                                </button>
-                                <button wire:click="openConsole({{ $instance->id }})"
-                                        style="font-size: 0.75rem; padding: 0.4rem 0.75rem; border-radius: 0.375rem; cursor: pointer; border: none;"
-                                        class="bg-primary-100 hover:bg-primary-200 text-primary-700 dark:bg-primary-500/20 dark:hover:bg-primary-500/30 dark:text-primary-400">
-                                    Console
-                                </button>
-                            @else
-                                <button wire:click="powerOn({{ $instance->id }})"
-                                        wire:confirm="Start your VPS?"
-                                        style="font-size: 0.75rem; padding: 0.4rem 0.75rem; border-radius: 0.375rem; cursor: pointer; border: none;"
-                                        class="bg-success-100 hover:bg-success-200 text-success-700 dark:bg-success-500/20 dark:hover:bg-success-500/30 dark:text-success-400">
-                                    Start
-                                </button>
-                            @endif
-                        </div>
-                    @endif
+                        @if($isPending)
+                            <a href="{{ route('vcenter-vps.console', $instance->id) }}"
+                               target="_blank" rel="noopener"
+                               class="fi-btn fi-btn-size-sm inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold shadow-sm ring-1
+                                      bg-warning-500 text-white ring-warning-500 hover:bg-warning-400
+                                      dark:bg-warning-500 dark:ring-warning-500 dark:hover:bg-warning-400">
+                                <x-filament::icon icon="tabler-terminal" class="h-3.5 w-3.5"/>
+                                Install Console
+                            </a>
+                        @endif
+                    </div>
+
                 </div>
             @endforeach
         </div>
     @endif
-
-    @push('scripts')
-        <script>
-            document.addEventListener('livewire:initialized', () => {
-                Livewire.on('open-console', ({ url }) => {
-                    window.open(url, '_blank', 'noopener');
-                });
-            });
-        </script>
-    @endpush
 </x-filament-panels::page>
