@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $instance->order->packPrice->pack->name ?? 'VPS' }} Console</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vmware-wmks@1.0.0/css/css/wmks-all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/vmware-wmks@1.0.0/wmks.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
@@ -12,14 +14,11 @@
             position: fixed; inset: 0; display: flex; flex-direction: column;
             align-items: center; justify-content: center;
             background: #111; color: #ccc; font-family: sans-serif; font-size: 0.9rem;
-            gap: 0.75rem;
+            gap: 0.75rem; z-index: 10;
         }
         #overlay.hidden { display: none; }
-        #overlay a {
-            color: #6ea8fe; text-decoration: none; font-size: 0.8rem;
-        }
+        #overlay a { color: #6ea8fe; text-decoration: none; font-size: 0.8rem; }
     </style>
-    <script src="/vcenter-vps/wmks.js"></script>
 </head>
 <body>
     <div id="overlay">

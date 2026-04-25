@@ -28,8 +28,5 @@ class VcenterVpsServiceProvider extends ServiceProvider
         Route::middleware(['web', 'auth'])
             ->get('/vcenter-vps/console/{instance}', [VcenterConsoleController::class, 'show'])
             ->name('vcenter-vps.console');
-
-        Route::get('/vcenter-vps/wmks.js', [VcenterConsoleController::class, 'wmks'])
-            ->name('vcenter-vps.wmks');
     }
 }
