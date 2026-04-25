@@ -396,15 +396,14 @@ class VCenterService
     /** @return array<array{id: string, name: string}> */
     public function listFolders(): array
     {
-        $response = $this->client()->get("{$this->baseUrl}/vcenter/folder", [
-            'filter.type' => 'VIRTUAL_MACHINE',
-        ]);
+        $response = $this->client()->get("{$this->baseUrl}/vcenter/folder");
 
         if (!$response->successful()) {
             return [];
         }
 
         return collect($response->json() ?? [])
+            ->filter(fn ($f) => ($f['type'] ?? '') === 'VIRTUAL_MACHINE')
             ->map(fn ($f) => ['id' => $f['folder'], 'name' => $f['name']])
             ->values()
             ->all();
