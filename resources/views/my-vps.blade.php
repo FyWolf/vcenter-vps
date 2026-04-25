@@ -2,110 +2,71 @@
     @php $instances = $this->getInstances(); @endphp
 
     @if($instances->isEmpty())
-        <x-filament::section>
-            <p class="text-center text-sm text-gray-500 dark:text-gray-400">You have no active VPS instances.</p>
-        </x-filament::section>
+        <div class="fi-section rounded-xl bg-white ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
+            <div style="padding: 2rem 1.5rem; text-align: center;">
+                <p class="text-sm text-gray-500 dark:text-gray-400">You have no active VPS instances.</p>
+            </div>
+        </div>
     @else
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            @foreach($instances as $instance)
-                @php
-                    $order     = $instance->order;
-                    $pack      = $order->packPrice->pack;
-                    $isPending = $instance->isAwaitingInstall();
-                    $isRunning = $instance->isRunning();
-                    $isStopped = $instance->isStopped();
-                @endphp
+        <div class="fi-section rounded-xl bg-white ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
+            <div style="padding: 1.25rem 1.5rem 0.5rem;">
+                <h3 style="font-size: 1rem; font-weight: 600;" class="text-gray-950 dark:text-white">
+                    My VPS
+                </h3>
+            </div>
 
-                <div class="flex flex-col overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.75rem; padding: 0 1.5rem 1.5rem;">
+                @foreach($instances as $instance)
+                    @php
+                        $order     = $instance->order;
+                        $pack      = $order->packPrice->pack;
+                        $isPending = $instance->isAwaitingInstall();
+                        $isRunning = $instance->isRunning();
+                    @endphp
 
-                    {{-- Card header --}}
-                    <div class="flex items-center gap-3 border-b border-gray-100 px-4 py-3 dark:border-white/10">
-                        <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-primary-50 dark:bg-primary-500/10">
-                            <x-filament::icon
-                                icon="tabler-server"
-                                class="h-5 w-5 text-primary-600 dark:text-primary-400"
-                            />
+                    <a href="{{ \Fywolf\VcenterVps\Filament\App\Pages\VpsConsole::getUrl(['vpsId' => $instance->id]) }}"
+                       class="fi-section rounded-lg bg-gray-50 ring-1 ring-gray-950/5 dark:bg-gray-800 dark:ring-white/10"
+                       style="display: block; padding: 1rem; text-decoration: none; transition: background 150ms;">
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+
+                            <div style="width: 2.5rem; height: 2.5rem; display: flex; align-items: center; justify-content: center; border-radius: 0.5rem; flex-shrink: 0;"
+                                 class="bg-primary-50 dark:bg-primary-500/10">
+                                <svg style="width: 1.25rem; height: 1.25rem;" class="text-primary-600 dark:text-primary-400"
+                                     xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/>
+                                    <line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/>
+                                </svg>
+                            </div>
+
+                            <div style="min-width: 0; flex: 1;">
+                                <div style="font-size: 0.875rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                                     class="text-gray-950 dark:text-white">
+                                    {{ $pack->name }}
+                                </div>
+                                <div style="font-size: 0.75rem; display: flex; align-items: center; gap: 0.4rem;"
+                                     class="text-gray-500 dark:text-gray-400">
+                                    {{ $instance->vm_ip ?? 'IP not assigned' }}
+                                    &middot;
+                                    @if($isPending)
+                                        <span class="text-warning-600 dark:text-warning-400">Installing</span>
+                                    @elseif($isRunning)
+                                        <span class="text-success-600 dark:text-success-400">Running</span>
+                                    @else
+                                        <span class="text-danger-600 dark:text-danger-400">Stopped</span>
+                                    @endif
+                                </div>
+                            </div>
+
+                            <svg style="width: 1rem; height: 1rem; flex-shrink: 0;" class="text-gray-400 dark:text-gray-500"
+                                 xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd"/>
+                            </svg>
+
                         </div>
-
-                        <div class="min-w-0 flex-1">
-                            <p class="truncate text-sm font-semibold text-gray-950 dark:text-white">
-                                {{ $pack->name }}
-                            </p>
-                            <p class="truncate text-xs text-gray-500 dark:text-gray-400">
-                                {{ $instance->vm_ip ?? 'IP not assigned' }}
-                            </p>
-                        </div>
-
-                        @if($isPending)
-                            <x-filament::badge color="warning">Installing</x-filament::badge>
-                        @elseif($isRunning)
-                            <x-filament::badge color="success">Running</x-filament::badge>
-                        @elseif($isStopped)
-                            <x-filament::badge color="danger">Stopped</x-filament::badge>
-                        @else
-                            <x-filament::badge color="gray">Unknown</x-filament::badge>
-                        @endif
-                    </div>
-
-                    {{-- Specs + expiry --}}
-                    <div class="flex flex-wrap gap-x-4 gap-y-1 px-4 py-3">
-                        @php $price = $order->packPrice; @endphp
-                        @if($price->cores)
-                            <span class="text-xs text-gray-500 dark:text-gray-400">
-                                <span class="font-medium text-gray-700 dark:text-gray-300">{{ $price->cores }}</span> vCPU
-                            </span>
-                        @endif
-                        @if($price->memory)
-                            <span class="text-xs text-gray-500 dark:text-gray-400">
-                                <span class="font-medium text-gray-700 dark:text-gray-300">{{ number_format($price->memory / 1024, 1) }}</span> GB RAM
-                            </span>
-                        @endif
-                        @if($price->disk)
-                            <span class="text-xs text-gray-500 dark:text-gray-400">
-                                <span class="font-medium text-gray-700 dark:text-gray-300">{{ $price->disk }}</span> GB Disk
-                            </span>
-                        @endif
-                        @if($order->expires_at)
-                            <span class="text-xs text-gray-500 dark:text-gray-400">
-                                Expires {{ $order->expires_at->diffForHumans() }}
-                            </span>
-                        @endif
-                    </div>
-
-                    {{-- Actions --}}
-                    <div class="mt-auto flex flex-wrap items-center gap-2 border-t border-gray-100 px-4 py-3 dark:border-white/10">
-                        <a href="{{ \Fywolf\VcenterVps\Filament\App\Pages\VpsConsole::getUrl(['instance' => $instance->id]) }}"
-                           class="fi-btn fi-btn-size-sm inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold shadow-sm ring-1
-                                  bg-primary-600 text-white ring-primary-600 hover:bg-primary-500
-                                  dark:bg-primary-500 dark:ring-primary-500 dark:hover:bg-primary-400">
-                            Manage
-                        </a>
-
-                        @if($isRunning)
-                            <a href="{{ route('vcenter-vps.console', $instance->id) }}"
-                               target="_blank" rel="noopener"
-                               class="fi-btn fi-btn-size-sm inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold shadow-sm ring-1
-                                      bg-white text-gray-950 ring-gray-950/10 hover:bg-gray-50
-                                      dark:bg-gray-800 dark:text-white dark:ring-white/20 dark:hover:bg-gray-700">
-                                <x-filament::icon icon="tabler-terminal" class="h-3.5 w-3.5"/>
-                                Console
-                            </a>
-                        @endif
-
-                        @if($isPending)
-                            <a href="{{ route('vcenter-vps.console', $instance->id) }}"
-                               target="_blank" rel="noopener"
-                               class="fi-btn fi-btn-size-sm inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold shadow-sm ring-1
-                                      bg-warning-500 text-white ring-warning-500 hover:bg-warning-400
-                                      dark:bg-warning-500 dark:ring-warning-500 dark:hover:bg-warning-400">
-                                <x-filament::icon icon="tabler-terminal" class="h-3.5 w-3.5"/>
-                                Install Console
-                            </a>
-                        @endif
-                    </div>
-
-                </div>
-            @endforeach
+                    </a>
+                @endforeach
+            </div>
         </div>
     @endif
 </x-filament-panels::page>

@@ -35,13 +35,13 @@ class VpsConsole extends Page
 
     public static function routes(Panel $panel): void
     {
-        Route::get('/vps/{instance}', static::class)
+        Route::get('/vps/{vpsId}', static::class)
             ->middleware(static::getRouteMiddleware($panel))
             ->withoutMiddleware(static::getWithoutRouteMiddleware($panel))
             ->name('vps-console');
     }
 
-    public function mount(int $instance): void
+    public function mount(int $vpsId): void
     {
         $customer = Customer::where('user_id', auth()->id())->firstOrFail();
 
@@ -50,7 +50,7 @@ class VpsConsole extends Page
             ->whereIn('status', [OrderStatus::Active, OrderStatus::GracePeriod, OrderStatus::Cancelled])
         )
             ->with(['order.packPrice.pack'])
-            ->findOrFail($instance);
+            ->findOrFail($vpsId);
     }
 
     public static function shouldRegisterNavigation(): bool
