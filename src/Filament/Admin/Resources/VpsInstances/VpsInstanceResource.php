@@ -176,15 +176,8 @@ class VpsInstanceResource extends Resource
                     ->icon('tabler-terminal')
                     ->color('primary')
                     ->visible(fn (VpsInstance $instance) => $instance->state_cache === 'POWERED_ON')
-                    ->action(function (VpsInstance $instance) {
-                        try {
-                            $url = app(VCenterService::class)->getConsoleTicket($instance->vm_id);
-                            $this->js("window.open(" . json_encode($url) . ", '_blank')");
-                            Notification::make()->title('Console opened')->success()->send();
-                        } catch (Exception $e) {
-                            Notification::make()->title('Console failed')->body($e->getMessage())->danger()->send();
-                        }
-                    }),
+                    ->url(fn (VpsInstance $instance) => route('vcenter-vps.admin.console', $instance->id))
+                    ->openUrlInNewTab(),
             ])
             ->defaultSort('id', 'desc');
     }
