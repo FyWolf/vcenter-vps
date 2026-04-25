@@ -218,10 +218,12 @@ class VCenterService
 
     public function addCdromFromLibrary(string $vmId, string $libraryItemId): string
     {
+        $isoPath = $this->resolveContentLibraryIsoPath($libraryItemId);
+
         $payload = [
             'backing' => [
-                'type'                    => 'CONTENT_LIBRARY_FILE',
-                'content_library_file_id' => $libraryItemId,
+                'type'     => 'ISO_FILE',
+                'iso_file' => $isoPath,
             ],
             'start_connected'    => true,
             'allow_guest_control' => true,
@@ -238,10 +240,12 @@ class VCenterService
 
     public function swapCdromToLibraryItem(string $vmId, string $cdromId, string $libraryItemId): void
     {
+        $isoPath = $this->resolveContentLibraryIsoPath($libraryItemId);
+
         $payload = [
             'backing' => [
-                'type'                    => 'CONTENT_LIBRARY_FILE',
-                'content_library_file_id' => $libraryItemId,
+                'type'     => 'ISO_FILE',
+                'iso_file' => $isoPath,
             ],
             'start_connected' => true,
         ];
@@ -251,6 +255,28 @@ class VCenterService
         if (!$response->successful()) {
             throw new Exception("vCenter CDROM swap failed for {$vmId}: " . $response->body());
         }
+    }
+
+    private function resolveContentLibraryIsoPath(string $libraryItemId): string
+    {
+        $response = $this->client()->get(
+            "{$this->baseUrl}/content/library/item/{$libraryItemId}/storage"
+        );
+
+        if (!$response->successful()) {
+            throw new Exception("Failed to get storage info for content library item {$libraryItemId}: " . $response->body());
+        }
+
+        foreach ($response->json() ?? [] as $storage) {
+            foreach ($storage['storage_uris'] ?? [] as $uri) {
+                // vSphere path format used by ISO_FILE backing: [DatastoreName] path/file.iso
+                if (str_starts_with($uri, '[')) {
+                    return $uri;
+                }
+            }
+        }
+
+        throw new Exception("No accessible ISO path found for content library item {$libraryItemId}. Ensure the item is cached/synced on a local datastore.");
     }
 
     // Content Library
