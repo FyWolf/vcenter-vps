@@ -103,13 +103,7 @@ class MyVps extends Page
     public function openConsole(int $instanceId): void
     {
         $instance = $this->resolveInstance($instanceId);
-
-        try {
-            $url = app(VCenterService::class)->getConsoleTicket($instance->vm_id);
-            $this->dispatch('open-console', url: $url);
-        } catch (Exception $e) {
-            Notification::make()->title('Failed to open console')->body($e->getMessage())->danger()->send();
-        }
+        $this->dispatch('open-console', url: route('vcenter-vps.console', $instance->id));
     }
 
     public function markInstallComplete(int $instanceId): void
