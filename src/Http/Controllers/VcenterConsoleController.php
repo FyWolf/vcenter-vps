@@ -60,9 +60,10 @@ class VcenterConsoleController extends Controller
         $ticket    = app(VCenterService::class)->getConsoleTicket($vmId);
         $parsed    = parse_url($ticket);
         $path      = ltrim($parsed['path'] ?? '', '/');
+        $query     = isset($parsed['query']) ? '?' . $parsed['query'] : '';
         $panelHost = $request->getHttpHost();
         $wsScheme  = $request->isSecure() ? 'wss' : 'ws';
 
-        return "{$wsScheme}://{$panelHost}/vcenter-proxy/{$path}";
+        return "{$wsScheme}://{$panelHost}/vcenter-proxy/{$path}{$query}";
     }
 }
