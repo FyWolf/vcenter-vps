@@ -35,7 +35,7 @@ class VcenterConsoleController extends Controller
 
     public function adminShow(Request $request, int $instance): \Illuminate\Contracts\View\View
     {
-        abort_unless($request->user()?->root_admin, 403);
+        abort_unless($request->user()?->isAdmin(), 403);
 
         $vpsInstance = VpsInstance::findOrFail($instance);
 

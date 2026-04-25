@@ -36,18 +36,19 @@
 
     <script>
         var wmks = WMKS.createWMKS('wmks-wrapper', {
-            rescale: WMKS.CONST.RescaleFit.STRETCH,
+            rescale: 'stretch',
             changeResolution: true,
             useVNCHandshake: false,
         });
 
-        wmks.register(WMKS.CONST.Events.CONNECTION_STATE_CHANGE, function (e, data) {
+        wmks.register('connectionstatechange', function (e, data) {
+            var state   = data && (typeof data === 'string' ? data : data.state);
             var overlay = document.getElementById('overlay');
             var msg     = document.getElementById('overlay-msg');
 
-            if (data.state === WMKS.CONST.ConnectionState.CONNECTED) {
+            if (state === 'connected') {
                 overlay.classList.add('hidden');
-            } else if (data.state === WMKS.CONST.ConnectionState.DISCONNECTED) {
+            } else if (state === 'disconnected') {
                 overlay.classList.remove('hidden');
                 msg.textContent = 'Console disconnected. Close this tab and click Console again.';
             } else {
