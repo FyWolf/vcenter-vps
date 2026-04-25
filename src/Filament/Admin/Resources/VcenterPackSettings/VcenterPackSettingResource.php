@@ -87,19 +87,21 @@ class VcenterPackSettingResource extends Resource
             ? TextInput::make('datastore_id')->label('Datastore ID')->required()
             : Select::make('datastore_id')->label('Datastore')->options($datastores)->required()->searchable();
 
-        if ($credentialsConfigured) {
-            try {
-                $folders = self::optionsFrom(app(VCenterService::class)->listFolders());
-            } catch (Exception) {
-                $folders = [];
-            }
-        } else {
-            $folders = [];
-        }
-
-        $components[] = empty($folders)
-            ? TextInput::make('folder_id')->label('VM Folder ID')->nullable()->helperText('vCenter VM folder ID (e.g. group-v123). Leave blank to use default.')
-            : Select::make('folder_id')->label('VM Folder')->options($folders)->nullable()->searchable()->helperText('Folder where new VMs will be placed.');
+        $components[] = Select::make('folder_id')
+            ->label('VM Folder')
+            ->options(function () use ($credentialsConfigured) {
+                if (!$credentialsConfigured) {
+                    return [];
+                }
+                try {
+                    return self::optionsFrom(app(VCenterService::class)->listFolders());
+                } catch (Exception) {
+                    return [];
+                }
+            })
+            ->nullable()
+            ->searchable()
+            ->helperText('Folder where new VMs will be placed. Required for ISO provisioning.');
 
         $components[] = Select::make('placement_type')
             ->label('Placement target')
