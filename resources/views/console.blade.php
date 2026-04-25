@@ -57,7 +57,21 @@
             }
         });
 
-        wmks.connect('{{ $consoleUrl }}');
+        fetch('{{ $ticketRoute }}', {
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            credentials: 'same-origin',
+        })
+        .then(function (r) {
+            if (!r.ok) throw new Error('Ticket request failed: ' + r.status);
+            return r.json();
+        })
+        .then(function (data) {
+            wmks.connect(data.url);
+        })
+        .catch(function (err) {
+            var msg = document.getElementById('overlay-msg');
+            msg.textContent = 'Failed to open console: ' + err.message;
+        });
     </script>
 </body>
 </html>

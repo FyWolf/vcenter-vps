@@ -30,7 +30,15 @@ class VcenterVpsServiceProvider extends ServiceProvider
             ->name('vcenter-vps.console');
 
         Route::middleware(['web', 'auth'])
+            ->get('/vcenter-vps/console/{instance}/ticket', [VcenterConsoleController::class, 'ticket'])
+            ->name('vcenter-vps.console.ticket');
+
+        Route::middleware(['web', 'auth'])
             ->get('/vcenter-vps/admin/console/{instance}', [VcenterConsoleController::class, 'adminShow'])
             ->name('vcenter-vps.admin.console');
+
+        Route::middleware(['web', 'auth'])
+            ->get('/vcenter-vps/admin/console/{instance}/ticket', [VcenterConsoleController::class, 'adminTicket'])
+            ->name('vcenter-vps.admin.console.ticket');
     }
 }
