@@ -74,7 +74,7 @@
 
                     {{-- Actions --}}
                     <div class="mt-auto flex flex-wrap items-center gap-2 border-t border-gray-100 px-4 py-3 dark:border-white/10">
-                        <a href="{{ \Fywolf\VcenterVps\Filament\App\Pages\VpsConsole::getUrl($instance->id) }}"
+                        <a href="{{ \Fywolf\VcenterVps\Filament\App\Pages\VpsConsole::getUrl(['instance' => $instance->id]) }}"
                            class="fi-btn fi-btn-size-sm inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold shadow-sm ring-1
                                   bg-primary-600 text-white ring-primary-600 hover:bg-primary-500
                                   dark:bg-primary-500 dark:ring-primary-500 dark:hover:bg-primary-400">

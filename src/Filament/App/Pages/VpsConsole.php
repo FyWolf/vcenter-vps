@@ -53,11 +53,6 @@ class VpsConsole extends Page
             ->findOrFail($instance);
     }
 
-    public static function getUrl(int $instanceId): string
-    {
-        return route('filament.app.pages.vps-console', ['instance' => $instanceId]);
-    }
-
     public static function shouldRegisterNavigation(): bool
     {
         return false;
