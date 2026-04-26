@@ -4,7 +4,6 @@ namespace Fywolf\VcenterVps\Providers;
 
 use Fywolf\Billing\ProvisionerRegistry;
 use Fywolf\VcenterVps\Http\Controllers\VcenterConsoleController;
-use Fywolf\VcenterVps\Providers\VpsPanelProvider;
 use Fywolf\VcenterVps\Provisioners\VcenterProvisioner;
 use Fywolf\VcenterVps\Services\VCenterService;
 use Illuminate\Support\Facades\Route;
@@ -15,7 +14,6 @@ class VcenterVpsServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(VCenterService::class);
-        $this->app->register(VpsPanelProvider::class);
     }
 
     public function boot(): void

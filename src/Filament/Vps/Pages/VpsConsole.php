@@ -7,22 +7,30 @@ use Exception;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\Concerns\InteractsWithActions;
-use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Panel;
 use Filament\Schemas\Components\Concerns\HasHeaderActions;
-use Fywolf\VcenterVps\Models\VpsInstance;
+use Fywolf\VcenterVps\Filament\Vps\Concerns\HasVpsContext;
 use Fywolf\VcenterVps\Services\VCenterService;
+use Illuminate\Support\Facades\Route;
 
 class VpsConsole extends Page
 {
+    use HasVpsContext;
     use InteractsWithActions, HasHeaderActions;
 
     protected static ?int $navigationSort = 1;
     protected static string|BackedEnum|null $navigationIcon = 'tabler-server';
     protected string $view = 'vcenter-vps::vps-console';
 
-    public VpsInstance $instance;
+    public static function routes(Panel $panel): void
+    {
+        Route::get('/{vpsId}', static::class)
+            ->middleware(static::getRouteMiddleware($panel))
+            ->withoutMiddleware(static::getWithoutRouteMiddleware($panel))
+            ->name('vps-console');
+    }
 
     public static function getNavigationLabel(): string
     {
@@ -34,10 +42,9 @@ class VpsConsole extends Page
         return $this->instance?->name ?? ($this->instance?->order?->packPrice?->pack?->name ?? 'VPS');
     }
 
-    public function mount(): void
+    public function mount(int $vpsId): void
     {
-        $this->instance = VpsInstance::with(['order.packPrice.pack'])
-            ->findOrFail(Filament::getTenant()->id);
+        $this->loadInstance($vpsId);
     }
 
     protected function getHeaderActions(): array

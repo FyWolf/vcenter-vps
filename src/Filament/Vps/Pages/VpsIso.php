@@ -4,27 +4,37 @@ namespace Fywolf\VcenterVps\Filament\Vps\Pages;
 
 use BackedEnum;
 use Exception;
-use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Panel;
+use Fywolf\VcenterVps\Filament\Vps\Concerns\HasVpsContext;
 use Fywolf\VcenterVps\Jobs\UploadIsoJob;
 use Fywolf\VcenterVps\Models\VpsInstance;
 use Fywolf\VcenterVps\Services\VCenterService;
+use Illuminate\Support\Facades\Route;
 use Livewire\WithFileUploads;
 
 class VpsIso extends Page
 {
+    use HasVpsContext;
     use WithFileUploads;
 
     protected static ?int $navigationSort = 2;
     protected static string|BackedEnum|null $navigationIcon = 'tabler-disc';
     protected string $view = 'vcenter-vps::vps-iso';
 
-    public VpsInstance $instance;
     public ?string $isoUrl = null;
     public $isoFile = null;
     public ?string $selectedLibraryItemId = null;
     public array $availableIsos = [];
+
+    public static function routes(Panel $panel): void
+    {
+        Route::get('/{vpsId}/iso', static::class)
+            ->middleware(static::getRouteMiddleware($panel))
+            ->withoutMiddleware(static::getWithoutRouteMiddleware($panel))
+            ->name('vps-iso');
+    }
 
     public static function getNavigationLabel(): string
     {
@@ -36,11 +46,9 @@ class VpsIso extends Page
         return 'ISO';
     }
 
-    public function mount(): void
+    public function mount(int $vpsId): void
     {
-        $this->instance = VpsInstance::with(['order.packPrice.pack'])
-            ->findOrFail(Filament::getTenant()->id);
-
+        $this->loadInstance($vpsId);
         $this->loadAvailableIsos();
     }
 
