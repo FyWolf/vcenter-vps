@@ -268,54 +268,51 @@ class VCenterService
         }
 
         $entries = $response->json() ?? [];
+        $datastoreNames = null;
 
-        // Pass 1: legacy [DatastoreName] path/file.iso format — usable directly
         foreach ($entries as $entry) {
             foreach ($entry['storage_uris'] ?? [] as $uri) {
+                // Bracket format: [DSName] path/file.iso — return as-is
                 if (str_starts_with($uri, '[')) {
                     return $uri;
                 }
-            }
-        }
 
-        // Pass 2: ds:///vmfs/volumes/<uuid>/<path> — convert via storage_backings
-        $datastoreNames = null;
-        foreach ($entries as $entry) {
-            foreach ($entry['storage_uris'] ?? [] as $uri) {
-                if (!preg_match('#^ds:///vmfs/volumes/[^/]+/(.+)$#', $uri, $m)) {
+                // Normalize: strip ds:// prefix, query string, and collapse repeated slashes
+                $path = preg_replace('#^ds://#', '', $uri);
+                $path = preg_replace('#\?.*$#', '', $path);
+                $path = preg_replace('#/{2,}#', '/', $path);
+
+                if (!preg_match('#^/vmfs/volumes/([^/]+)/(.+)$#', $path, $m)) {
                     continue;
                 }
 
-                $relativePath = $m[1];
+                $relativePath = $m[2];
 
+                // Prefer bracket format — look up datastore name via storage_backings
                 $datastoreId = collect($entry['storage_backings'] ?? [])
                     ->firstWhere('type', 'DATASTORE')['datastore_id'] ?? null;
 
-                if (!$datastoreId) {
-                    continue;
+                if ($datastoreId) {
+                    $datastoreNames ??= collect($this->listDatastores())->pluck('name', 'id')->all();
+                    $dsName = $datastoreNames[$datastoreId] ?? null;
+
+                    if ($dsName) {
+                        return "[{$dsName}] {$relativePath}";
+                    }
                 }
 
-                $datastoreNames ??= collect($this->listDatastores())->pluck('name', 'id')->all();
-                $dsName = $datastoreNames[$datastoreId] ?? null;
-
-                if ($dsName) {
-                    return "[{$dsName}] {$relativePath}";
-                }
+                // Fallback: vSphere also accepts the raw absolute path as iso_file
+                return $path;
             }
         }
 
-        // Item exists but isn't on a local datastore — likely a subscribed library that hasn't synced yet
         $uncached = collect($entries)->contains(fn ($e) => isset($e['cached']) && !$e['cached']);
-        $diagnostic = json_encode(array_map(fn ($e) => [
-            'name'         => $e['name'] ?? null,
-            'cached'       => $e['cached'] ?? null,
-            'storage_uris' => $e['storage_uris'] ?? [],
-        ], $entries));
+        $diagnostic = json_encode($entries);
 
         throw new Exception(
             $uncached
-                ? "Content library item {$libraryItemId} is not cached on any datastore. If this is a subscribed library, sync it first in vCenter (Content Libraries → item → Synchronize Item)."
-                : "Could not resolve a datastore path for content library item {$libraryItemId}. Storage info: {$diagnostic}"
+                ? "Content library item {$libraryItemId} is not cached on any datastore. If this is a subscribed library, sync it first in vCenter."
+                : "Could not resolve a datastore path for content library item {$libraryItemId}. Raw storage info: {$diagnostic}"
         );
     }
 
