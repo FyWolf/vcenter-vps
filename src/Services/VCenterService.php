@@ -267,16 +267,56 @@ class VCenterService
             throw new Exception("Failed to get storage info for content library item {$libraryItemId}: " . $response->body());
         }
 
-        foreach ($response->json() ?? [] as $storage) {
-            foreach ($storage['storage_uris'] ?? [] as $uri) {
-                // vSphere path format used by ISO_FILE backing: [DatastoreName] path/file.iso
+        $entries = $response->json() ?? [];
+
+        // Pass 1: legacy [DatastoreName] path/file.iso format — usable directly
+        foreach ($entries as $entry) {
+            foreach ($entry['storage_uris'] ?? [] as $uri) {
                 if (str_starts_with($uri, '[')) {
                     return $uri;
                 }
             }
         }
 
-        throw new Exception("No accessible ISO path found for content library item {$libraryItemId}. Ensure the item is cached/synced on a local datastore.");
+        // Pass 2: ds:///vmfs/volumes/<uuid>/<path> — convert via storage_backings
+        $datastoreNames = null;
+        foreach ($entries as $entry) {
+            foreach ($entry['storage_uris'] ?? [] as $uri) {
+                if (!preg_match('#^ds:///vmfs/volumes/[^/]+/(.+)$#', $uri, $m)) {
+                    continue;
+                }
+
+                $relativePath = $m[1];
+
+                $datastoreId = collect($entry['storage_backings'] ?? [])
+                    ->firstWhere('type', 'DATASTORE')['datastore_id'] ?? null;
+
+                if (!$datastoreId) {
+                    continue;
+                }
+
+                $datastoreNames ??= collect($this->listDatastores())->pluck('name', 'id')->all();
+                $dsName = $datastoreNames[$datastoreId] ?? null;
+
+                if ($dsName) {
+                    return "[{$dsName}] {$relativePath}";
+                }
+            }
+        }
+
+        // Item exists but isn't on a local datastore — likely a subscribed library that hasn't synced yet
+        $uncached = collect($entries)->contains(fn ($e) => isset($e['cached']) && !$e['cached']);
+        $diagnostic = json_encode(array_map(fn ($e) => [
+            'name'         => $e['name'] ?? null,
+            'cached'       => $e['cached'] ?? null,
+            'storage_uris' => $e['storage_uris'] ?? [],
+        ], $entries));
+
+        throw new Exception(
+            $uncached
+                ? "Content library item {$libraryItemId} is not cached on any datastore. If this is a subscribed library, sync it first in vCenter (Content Libraries → item → Synchronize Item)."
+                : "Could not resolve a datastore path for content library item {$libraryItemId}. Storage info: {$diagnostic}"
+        );
     }
 
     // Content Library
