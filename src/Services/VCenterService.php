@@ -343,51 +343,81 @@ class VCenterService
 
         $entries = $response->json() ?? [];
         $datastoreNames = null;
+        $relativePath   = null;
+        $itemDatastoreId = null;
 
         foreach ($entries as $entry) {
             foreach ($entry['storage_uris'] ?? [] as $uri) {
-                // Bracket format: [DSName] path/file.iso — return as-is
+                // Already in bracket format — usable as-is
                 if (str_starts_with($uri, '[')) {
                     return $uri;
                 }
 
-                // Normalize: strip ds:// prefix, query string, and collapse repeated slashes
+                // Normalize ds:///vmfs/volumes/<uuid>//<path>?serverId=...
                 $path = preg_replace('#^ds://#', '', $uri);
                 $path = preg_replace('#\?.*$#', '', $path);
                 $path = preg_replace('#/{2,}#', '/', $path);
 
-                if (!preg_match('#^/vmfs/volumes/([^/]+)/(.+)$#', $path, $m)) {
-                    continue;
+                if (preg_match('#^/vmfs/volumes/[^/]+/(.+)$#', $path, $m)) {
+                    $relativePath = $m[1];
+                    $itemDatastoreId = collect($entry['storage_backings'] ?? [])
+                        ->firstWhere('type', 'DATASTORE')['datastore_id'] ?? null;
+                    break 2;
                 }
-
-                $relativePath = $m[2];
-
-                // Prefer bracket format — look up datastore name via storage_backings
-                $datastoreId = collect($entry['storage_backings'] ?? [])
-                    ->firstWhere('type', 'DATASTORE')['datastore_id'] ?? null;
-
-                if ($datastoreId) {
-                    $datastoreNames ??= collect($this->listDatastores())->pluck('name', 'id')->all();
-                    $dsName = $datastoreNames[$datastoreId] ?? null;
-
-                    if ($dsName) {
-                        return "[{$dsName}] {$relativePath}";
-                    }
-                }
-
-                // Fallback: vSphere also accepts the raw absolute path as iso_file
-                return $path;
             }
         }
 
-        $uncached = collect($entries)->contains(fn ($e) => isset($e['cached']) && !$e['cached']);
-        $diagnostic = json_encode($entries);
+        if (!$relativePath) {
+            $uncached = collect($entries)->contains(fn ($e) => isset($e['cached']) && !$e['cached']);
+            throw new Exception(
+                $uncached
+                    ? "Content library item {$libraryItemId} is not cached on any datastore. If this is a subscribed library, sync it first in vCenter."
+                    : "No usable storage URI for content library item {$libraryItemId}. Raw storage info: " . json_encode($entries)
+            );
+        }
 
-        throw new Exception(
-            $uncached
-                ? "Content library item {$libraryItemId} is not cached on any datastore. If this is a subscribed library, sync it first in vCenter."
-                : "Could not resolve a datastore path for content library item {$libraryItemId}. Raw storage info: {$diagnostic}"
-        );
+        // Find the datastore — try the item first, then the parent library
+        $datastoreId = $itemDatastoreId ?? $this->getLibraryDatastoreId($libraryItemId);
+
+        if (!$datastoreId) {
+            throw new Exception(
+                "Could not determine the datastore for content library item {$libraryItemId}. " .
+                "The library may have no DATASTORE backing configured."
+            );
+        }
+
+        $datastoreNames = collect($this->listDatastores())->pluck('name', 'id')->all();
+        $dsName = $datastoreNames[$datastoreId] ?? null;
+
+        if (!$dsName) {
+            throw new Exception(
+                "Datastore {$datastoreId} (referenced by library item {$libraryItemId}) is not visible to this user. " .
+                "Available datastores: " . json_encode($datastoreNames)
+            );
+        }
+
+        return "[{$dsName}] {$relativePath}";
+    }
+
+    private function getLibraryDatastoreId(string $libraryItemId): ?string
+    {
+        $itemResponse = $this->client()->get("{$this->baseUrl}/content/library/item/{$libraryItemId}");
+        if (!$itemResponse->successful()) {
+            return null;
+        }
+
+        $libraryId = $itemResponse->json('library_id');
+        if (!$libraryId) {
+            return null;
+        }
+
+        $libraryResponse = $this->client()->get("{$this->baseUrl}/content/library/{$libraryId}");
+        if (!$libraryResponse->successful()) {
+            return null;
+        }
+
+        return collect($libraryResponse->json('storage_backings') ?? [])
+            ->firstWhere('type', 'DATASTORE')['datastore_id'] ?? null;
     }
 
     // Content Library
