@@ -100,14 +100,12 @@
                            class="fi-btn fi-btn-size-md inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold shadow-sm ring-1
                                   bg-primary-600 text-white ring-primary-600 hover:bg-primary-500
                                   dark:bg-primary-500 dark:ring-primary-500 dark:hover:bg-primary-400">
-                            <x-filament::icon icon="tabler-terminal" class="h-4 w-4"/>
                             Open Install Console
                         </a>
                         <a href="{{ route('filament.app.pages.vps-iso', ['vpsId' => $instance->id]) }}"
                            class="fi-btn fi-btn-size-md inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold shadow-sm ring-1
                                   bg-white text-gray-950 ring-gray-950/10 hover:bg-gray-50
                                   dark:bg-gray-800 dark:text-white dark:ring-white/20 dark:hover:bg-gray-700">
-                            <x-filament::icon icon="tabler-disc" class="h-4 w-4"/>
                             Manage ISO
                         </a>
                     </div>

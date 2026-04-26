@@ -18,7 +18,6 @@
                        class="fi-btn fi-btn-size-md inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold shadow-sm ring-1
                               bg-primary-600 text-white ring-primary-600 hover:bg-primary-500
                               dark:bg-primary-500 dark:ring-primary-500 dark:hover:bg-primary-400">
-                        <x-filament::icon icon="tabler-terminal" class="h-4 w-4"/>
                         Open Console
                     </a>
                     <x-filament::button

@@ -3,7 +3,7 @@
 namespace Fywolf\VcenterVps\Filament\App\Concerns;
 
 use Filament\Navigation\NavigationItem;
-use Filament\Pages\SubNavigationPosition;
+use Filament\Pages\Enums\SubNavigationPosition;
 use Fywolf\Billing\Enums\OrderStatus;
 use Fywolf\Billing\Models\Customer;
 use Fywolf\VcenterVps\Models\VpsInstance;
