@@ -70,4 +70,9 @@ class VpsInstance extends Model
     {
         return $this->install_status === null || $this->install_status === self::INSTALL_COMPLETE;
     }
+
+    public function getFilamentName(): string
+    {
+        return $this->name ?? ($this->order?->packPrice?->pack?->name ?? 'VPS #' . $this->id);
+    }
 }

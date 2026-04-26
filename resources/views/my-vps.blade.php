@@ -2,71 +2,84 @@
     @php $instances = $this->getInstances(); @endphp
 
     @if($instances->isEmpty())
-        <div class="fi-section rounded-xl bg-white ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
-            <div style="padding: 2rem 1.5rem; text-align: center;">
-                <p class="text-sm text-gray-500 dark:text-gray-400">You have no active VPS instances.</p>
-            </div>
+        <div class="py-12 flex flex-col items-center justify-center gap-4 text-center">
+            <p class="text-base font-semibold text-gray-950 dark:text-white">You have no active VPS instances.</p>
         </div>
     @else
-        <div class="fi-section rounded-xl bg-white ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
-            <div style="padding: 1.25rem 1.5rem 0.5rem;">
-                <h3 style="font-size: 1rem; font-weight: 600;" class="text-gray-950 dark:text-white">
-                    My VPS
-                </h3>
-            </div>
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            @foreach($instances as $instance)
+                @php
+                    $order     = $instance->order;
+                    $price     = $order->packPrice;
+                    $pack      = $price->pack;
+                    $isPending = $instance->isAwaitingInstall();
+                    $isRunning = $instance->isRunning();
 
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.75rem; padding: 0 1.5rem 1.5rem;">
-                @foreach($instances as $instance)
-                    @php
-                        $order     = $instance->order;
-                        $pack      = $order->packPrice->pack;
-                        $isPending = $instance->isAwaitingInstall();
-                        $isRunning = $instance->isRunning();
-                    @endphp
+                    if ($isPending) {
+                        $statusColor = 'warning';
+                        $statusIcon  = 'tabler-clock-hour-4';
+                        $statusLabel = 'Installing';
+                        $borderClass = 'bg-warning-500';
+                    } elseif ($isRunning) {
+                        $statusColor = 'success';
+                        $statusIcon  = 'tabler-circle-check';
+                        $statusLabel = 'Running';
+                        $borderClass = 'bg-success-500';
+                    } else {
+                        $statusColor = 'danger';
+                        $statusIcon  = 'tabler-circle-x';
+                        $statusLabel = 'Stopped';
+                        $borderClass = 'bg-danger-500';
+                    }
+                @endphp
 
-                    <a href="{{ \Fywolf\VcenterVps\Filament\App\Pages\VpsConsole::getUrl(['vpsId' => $instance->id]) }}"
-                       class="fi-section rounded-lg bg-gray-50 ring-1 ring-gray-950/5 dark:bg-gray-800 dark:ring-white/10"
-                       style="display: block; padding: 1rem; text-decoration: none; transition: background 150ms;">
-                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <div class="relative cursor-pointer"
+                     x-on:click="window.location = '{{ \Fywolf\VcenterVps\Filament\Vps\Pages\VpsConsole::getUrl(panel: 'vps', tenant: $instance) }}'">
 
-                            <div style="width: 2.5rem; height: 2.5rem; display: flex; align-items: center; justify-content: center; border-radius: 0.5rem; flex-shrink: 0;"
-                                 class="bg-primary-50 dark:bg-primary-500/10">
-                                <svg style="width: 1.25rem; height: 1.25rem;" class="text-primary-600 dark:text-primary-400"
-                                     xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/>
-                                    <line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/>
-                                </svg>
-                            </div>
+                    <div class="absolute left-0 top-1 bottom-0 w-1 rounded-lg {{ $borderClass }}"></div>
 
-                            <div style="min-width: 0; flex: 1;">
-                                <div style="font-size: 0.875rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
-                                     class="text-gray-950 dark:text-white">
-                                    {{ $instance->name ?? $pack->name }}
-                                </div>
-                                <div style="font-size: 0.75rem; display: flex; align-items: center; gap: 0.4rem;"
-                                     class="text-gray-500 dark:text-gray-400">
-                                    {{ $instance->vm_ip ?? 'IP not assigned' }}
-                                    &middot;
-                                    @if($isPending)
-                                        <span class="text-warning-600 dark:text-warning-400">Installing</span>
-                                    @elseif($isRunning)
-                                        <span class="text-success-600 dark:text-success-400">Running</span>
-                                    @else
-                                        <span class="text-danger-600 dark:text-danger-400">Stopped</span>
-                                    @endif
-                                </div>
-                            </div>
+                    <div class="flex-1 rounded-lg overflow-hidden p-3 bg-white dark:bg-gray-800 dark:text-white">
 
-                            <svg style="width: 1rem; height: 1rem; flex-shrink: 0;" class="text-gray-400 dark:text-gray-500"
-                                 xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd"/>
-                            </svg>
-
+                        <div class="flex items-center gap-2 mb-3">
+                            <x-filament::icon-button
+                                :icon="$statusIcon"
+                                :color="$statusColor"
+                                :tooltip="$statusLabel"
+                                size="lg"
+                            />
+                            <h2 class="text-xl font-bold text-gray-950 dark:text-white">
+                                {{ $instance->name ?? $pack->name }}
+                            </h2>
                         </div>
-                    </a>
-                @endforeach
-            </div>
+
+                        <div class="flex justify-between text-center items-center gap-4">
+                            @if($price->cores)
+                                <div>
+                                    <p class="text-sm dark:text-gray-400">CPU</p>
+                                    <p class="text-md font-semibold">{{ $price->cores }} cores</p>
+                                </div>
+                            @endif
+                            @if($price->memory)
+                                <div>
+                                    <p class="text-sm dark:text-gray-400">RAM</p>
+                                    <p class="text-md font-semibold">{{ number_format($price->memory / 1024, 1) }} GB</p>
+                                </div>
+                            @endif
+                            @if($price->disk)
+                                <div>
+                                    <p class="text-sm dark:text-gray-400">Disk</p>
+                                    <p class="text-md font-semibold">{{ $price->disk }} GB</p>
+                                </div>
+                            @endif
+                            <div class="hidden sm:block">
+                                <p class="text-sm dark:text-gray-400">IP Address</p>
+                                <p class="text-md font-semibold">{{ $instance->vm_ip ?? 'None' }}</p>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            @endforeach
         </div>
     @endif
 </x-filament-panels::page>

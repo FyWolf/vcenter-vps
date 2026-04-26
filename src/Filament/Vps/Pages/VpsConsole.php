@@ -1,40 +1,43 @@
 <?php
 
-namespace Fywolf\VcenterVps\Filament\App\Pages;
+namespace Fywolf\VcenterVps\Filament\Vps\Pages;
 
+use BackedEnum;
 use Exception;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\Concerns\InteractsWithActions;
+use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
-use Filament\Pages\Enums\SubNavigationPosition;
 use Filament\Pages\Page;
-use Filament\Panel;
 use Filament\Schemas\Components\Concerns\HasHeaderActions;
-use Fywolf\VcenterVps\Filament\App\Concerns\HasVpsNavigation;
+use Fywolf\VcenterVps\Models\VpsInstance;
 use Fywolf\VcenterVps\Services\VCenterService;
-use Illuminate\Support\Facades\Route;
 
 class VpsConsole extends Page
 {
-    use HasVpsNavigation;
     use InteractsWithActions, HasHeaderActions;
 
-    protected static ?SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
-
+    protected static ?int $navigationSort = 1;
+    protected static string|BackedEnum|null $navigationIcon = 'tabler-server';
     protected string $view = 'vcenter-vps::vps-console';
 
-    public static function routes(Panel $panel): void
+    public VpsInstance $instance;
+
+    public static function getNavigationLabel(): string
     {
-        Route::get('/vps/{vpsId}', static::class)
-            ->middleware(static::getRouteMiddleware($panel))
-            ->withoutMiddleware(static::getWithoutRouteMiddleware($panel))
-            ->name('vps-console');
+        return 'Overview';
     }
 
-    public function mount(int $vpsId): void
+    public function getTitle(): string
     {
-        $this->mountVps($vpsId);
+        return $this->instance?->name ?? ($this->instance?->order?->packPrice?->pack?->name ?? 'VPS');
+    }
+
+    public function mount(): void
+    {
+        $this->instance = VpsInstance::with(['order.packPrice.pack'])
+            ->findOrFail(Filament::getTenant()->id);
     }
 
     protected function getHeaderActions(): array

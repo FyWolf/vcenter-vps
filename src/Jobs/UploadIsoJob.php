@@ -10,7 +10,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Throwable;
@@ -37,96 +36,96 @@ class UploadIsoJob implements ShouldQueue
     public function handle(): void
     {
         $instance = VpsInstance::findOrFail($this->instanceId);
+        $service  = app(VCenterService::class);
+        $itemName = "customer-iso-order-{$instance->order_id}-" . now()->format('YmdHis');
 
-        $localPath = $this->fetchIso();
+        $itemId = $this->isoSourceType === 'url'
+            ? $this->handleUrlPull($service, $itemName)
+            : $this->handleFilePush($service, $itemName);
 
-        try {
-            $itemName = "customer-iso-order-{$instance->order_id}-" . now()->format('YmdHis');
-
-            $itemId = app(VCenterService::class)->uploadIsoToLibrary(
-                $this->libraryId,
-                $itemName,
-                $localPath
-            );
-
-            if ($instance->cdrom_id) {
-                app(VCenterService::class)->swapCdromToLibraryItem(
-                    $instance->vm_id,
-                    $instance->cdrom_id,
-                    $itemId
-                );
-            } else {
-                $cdromId = app(VCenterService::class)->addCdromFromLibrary($instance->vm_id, $itemId);
-                $instance->update(['cdrom_id' => $cdromId]);
-            }
-
-            $instance->update(['iso_item_id' => $itemId]);
-
-            AuditLog::record('vps_iso_swapped', [
-                'vm_id'          => $instance->vm_id,
-                'iso_item_id'    => $itemId,
-                'source_type'    => $this->isoSourceType,
-            ], $instance->order);
-        } finally {
-            $this->cleanupLocal($localPath);
+        if ($instance->cdrom_id) {
+            $service->swapCdromToLibraryItem($instance->vm_id, $instance->cdrom_id, $itemId);
+        } else {
+            $cdromId = $service->addCdromFromLibrary($instance->vm_id, $itemId);
+            $instance->update(['cdrom_id' => $cdromId]);
         }
+
+        $instance->update(['iso_item_id' => $itemId]);
+
+        AuditLog::record('vps_iso_swapped', [
+            'vm_id'       => $instance->vm_id,
+            'iso_item_id' => $itemId,
+            'source_type' => $this->isoSourceType,
+        ], $instance->order);
     }
 
     public function failed(Throwable $exception): void
     {
-        $instance = VpsInstance::find($this->instanceId);
+        if ($this->isoSourceType === 'storage') {
+            Storage::delete($this->isoSource);
+        }
 
+        $instance = VpsInstance::find($this->instanceId);
         if ($instance) {
             AuditLog::record('vps_iso_upload_failed', [
                 'error' => $exception->getMessage(),
             ], $instance->order);
         }
-
-        $this->cleanupLocal(null);
     }
 
-    private function fetchIso(): string
+    private function handleUrlPull(VCenterService $service, string $itemName): string
     {
-        $tmpPath = storage_path('app/iso-uploads/' . Str::uuid() . '.iso');
-        @mkdir(dirname($tmpPath), 0755, true);
+        $transfer = $service->startPullTransfer($this->libraryId, $itemName, $this->isoSource);
 
-        if ($this->isoSourceType === 'storage') {
-            $contents = Storage::get($this->isoSource);
-            file_put_contents($tmpPath, $contents);
-            Storage::delete($this->isoSource);
-            return $tmpPath;
-        }
+        $deadline = now()->addHour();
+        while (now()->lt($deadline)) {
+            $status = $service->getSessionFileStatus($transfer['session_id'], $transfer['filename']);
 
-        // URL download — stream to avoid memory exhaustion
-        $response = Http::withOptions(['stream' => true])
-            ->timeout(3600)
-            ->get($this->isoSource);
-
-        if (!$response->successful()) {
-            throw new Exception("Failed to download ISO from URL: " . $response->status());
-        }
-
-        $fp = fopen($tmpPath, 'wb');
-        try {
-            $body = $response->toPsrResponse()->getBody();
-            while (!$body->eof()) {
-                fwrite($fp, $body->read(65536));
+            if ($status === 'READY') {
+                $service->completeUpdateSession($transfer['session_id']);
+                return $transfer['item_id'];
             }
-        } finally {
-            fclose($fp);
+
+            if ($status === 'ERROR') {
+                throw new Exception("vCenter PULL transfer failed for URL: {$this->isoSource}");
+            }
+
+            sleep(30);
         }
 
-        return $tmpPath;
+        throw new Exception("vCenter PULL transfer timed out after 1 hour");
     }
 
-    private function cleanupLocal(?string $path): void
+    private function handleFilePush(VCenterService $service, string $itemName): string
     {
-        if ($path && file_exists($path)) {
-            @unlink($path);
-        }
+        $localPath = $this->copyToLocal();
 
-        if ($this->isoSourceType === 'storage') {
+        try {
+            return $service->uploadIsoToLibrary($this->libraryId, $itemName, $localPath);
+        } finally {
+            @unlink($localPath);
             Storage::delete($this->isoSource);
         }
+    }
+
+    private function copyToLocal(): string
+    {
+        $localPath = storage_path('app/iso-uploads/' . Str::uuid() . '.iso');
+        @mkdir(dirname($localPath), 0755, true);
+
+        $source = Storage::readStream($this->isoSource);
+        if (!$source) {
+            throw new Exception("Failed to read uploaded ISO from temporary storage");
+        }
+
+        $dest = fopen($localPath, 'wb');
+        try {
+            stream_copy_to_stream($source, $dest);
+        } finally {
+            fclose($dest);
+            fclose($source);
+        }
+
+        return $localPath;
     }
 }

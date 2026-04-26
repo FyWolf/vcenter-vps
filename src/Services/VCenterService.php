@@ -331,42 +331,14 @@ class VCenterService
     }
 
     /**
-     * Upload a local ISO file to a Content Library.
+     * Upload a local ISO file to a Content Library via PUSH transfer.
      * Returns the new library item ID.
      */
     public function uploadIsoToLibrary(string $libraryId, string $itemName, string $filePath): string
     {
-        // 1. Create library item
-        $createResponse = $this->client()->post("{$this->baseUrl}/content/library/item", [
-            'create_spec' => [
-                'library_id' => $libraryId,
-                'name'       => $itemName,
-                'type'       => 'iso',
-            ],
-            'client_token' => (string) \Illuminate\Support\Str::uuid(),
-        ]);
+        $itemId    = $this->createLibraryItem($libraryId, $itemName);
+        $sessionId = $this->createUpdateSession($itemId);
 
-        if (!$createResponse->successful()) {
-            throw new Exception("Content Library item creation failed: " . $createResponse->body());
-        }
-
-        $itemId = trim($createResponse->body(), '"');
-
-        // 2. Create update session
-        $sessionResponse = $this->client()->post("{$this->baseUrl}/content/library/item/update-session", [
-            'create_spec' => [
-                'library_item_id' => $itemId,
-                'client_token'    => (string) \Illuminate\Support\Str::uuid(),
-            ],
-        ]);
-
-        if (!$sessionResponse->successful()) {
-            throw new Exception("Content Library update session failed: " . $sessionResponse->body());
-        }
-
-        $sessionId = trim($sessionResponse->body(), '"');
-
-        // 3. Add file spec to session (PUSH transfer)
         $fileSize = filesize($filePath);
         $filename  = basename($filePath);
 
@@ -389,7 +361,6 @@ class VCenterService
             throw new Exception("Content Library did not return an upload URL.");
         }
 
-        // 4. Upload the file
         $stream = fopen($filePath, 'rb');
         try {
             $uploadRequest = Http::withHeaders([
@@ -411,10 +382,105 @@ class VCenterService
             throw new Exception("ISO upload failed: " . $uploadResponse->body());
         }
 
-        // 5. Complete the session
-        $this->client()->post("{$this->baseUrl}/content/library/item/update-session/{$sessionId}?action=complete");
+        $this->completeUpdateSession($sessionId);
 
         return $itemId;
+    }
+
+    /**
+     * Register a URL for vCenter to pull (download) directly into a Content Library.
+     * Returns ['item_id', 'session_id', 'filename'] — session must be completed after PULL finishes.
+     */
+    public function startPullTransfer(string $libraryId, string $itemName, string $url): array
+    {
+        $itemId    = $this->createLibraryItem($libraryId, $itemName);
+        $sessionId = $this->createUpdateSession($itemId);
+
+        $filename = basename(parse_url($url, PHP_URL_PATH)) ?: 'image.iso';
+        if (!str_ends_with(strtolower($filename), '.iso')) {
+            $filename .= '.iso';
+        }
+
+        $addResponse = $this->client()->post(
+            "{$this->baseUrl}/content/library/item/update-session/{$sessionId}/file?action=add",
+            [
+                'name'            => $filename,
+                'source_type'     => 'PULL',
+                'source_endpoint' => ['uri' => $url],
+            ]
+        );
+
+        if (!$addResponse->successful()) {
+            throw new Exception("Content Library PULL source registration failed: " . $addResponse->body());
+        }
+
+        return [
+            'item_id'    => $itemId,
+            'session_id' => $sessionId,
+            'filename'   => $filename,
+        ];
+    }
+
+    /**
+     * Returns the transfer status of a file within an update session.
+     * Possible values: WAITING_FOR_TRANSFER, TRANSFERRING, READY, VALIDATING, ERROR
+     */
+    public function getSessionFileStatus(string $sessionId, string $filename): string
+    {
+        $response = $this->client()->get(
+            "{$this->baseUrl}/content/library/item/update-session/{$sessionId}/file"
+        );
+
+        if (!$response->successful()) {
+            return 'ERROR';
+        }
+
+        foreach ($response->json() ?? [] as $fileInfo) {
+            if (($fileInfo['name'] ?? '') === $filename) {
+                return $fileInfo['status'] ?? 'ERROR';
+            }
+        }
+
+        return 'ERROR';
+    }
+
+    private function createLibraryItem(string $libraryId, string $name): string
+    {
+        $response = $this->client()->post("{$this->baseUrl}/content/library/item", [
+            'create_spec' => [
+                'library_id' => $libraryId,
+                'name'       => $name,
+                'type'       => 'iso',
+            ],
+            'client_token' => (string) \Illuminate\Support\Str::uuid(),
+        ]);
+
+        if (!$response->successful()) {
+            throw new Exception("Content Library item creation failed: " . $response->body());
+        }
+
+        return trim($response->body(), '"');
+    }
+
+    private function createUpdateSession(string $itemId): string
+    {
+        $response = $this->client()->post("{$this->baseUrl}/content/library/item/update-session", [
+            'create_spec' => [
+                'library_item_id' => $itemId,
+                'client_token'    => (string) \Illuminate\Support\Str::uuid(),
+            ],
+        ]);
+
+        if (!$response->successful()) {
+            throw new Exception("Content Library update session creation failed: " . $response->body());
+        }
+
+        return trim($response->body(), '"');
+    }
+
+    public function completeUpdateSession(string $sessionId): void
+    {
+        $this->client()->post("{$this->baseUrl}/content/library/item/update-session/{$sessionId}?action=complete");
     }
 
     // Admin dropdowns
