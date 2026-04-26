@@ -239,7 +239,12 @@ class VCenterService
             throw new Exception("vCenter attach ISO failed for {$vmId}: " . $response->body());
         }
 
-        return trim($response->body(), '"');
+        $cdromId = trim($response->body(), '"');
+
+        // Force connection — vCenter creates new CDROMs in disconnected state on running VMs
+        $this->connectCdrom($vmId, $cdromId);
+
+        return $cdromId;
     }
 
     public function ensureSataController(string $vmId): void
@@ -328,6 +333,57 @@ class VCenterService
 
         if (!$response->successful()) {
             throw new Exception("vCenter CDROM swap failed for {$vmId}: " . $response->body());
+        }
+
+        // Reconnect with new ISO mounted
+        $this->connectCdrom($vmId, $cdromId);
+    }
+
+    public function connectCdrom(string $vmId, string $cdromId): void
+    {
+        try {
+            $this->client()->post(
+                "{$this->baseUrl}/vcenter/vm/{$vmId}/hardware/cdrom/{$cdromId}/connect"
+            );
+        } catch (Exception) {
+            // VM_POWERED_OFF or ALREADY_IN_DESIRED_STATE — both are fine
+        }
+    }
+
+    /**
+     * Get the VM's current boot device order.
+     *
+     * @return array<string> Ordered list of device types (e.g. ['DISK', 'CDROM', 'ETHERNET'])
+     */
+    public function getBootOrder(string $vmId): array
+    {
+        $response = $this->client()->get("{$this->baseUrl}/vcenter/vm/{$vmId}/hardware/boot/device");
+
+        if (!$response->successful()) {
+            return [];
+        }
+
+        return collect($response->json() ?? [])->pluck('type')->filter()->values()->all();
+    }
+
+    /**
+     * Set the VM boot device order.
+     *
+     * @param array<string> $deviceTypes Ordered list of types: CDROM, DISK, ETHERNET, FLOPPY
+     */
+    public function setBootOrder(string $vmId, array $deviceTypes): void
+    {
+        $payload = [
+            'devices' => array_map(fn ($type) => ['type' => $type], $deviceTypes),
+        ];
+
+        $response = $this->client()->put(
+            "{$this->baseUrl}/vcenter/vm/{$vmId}/hardware/boot/device",
+            $payload
+        );
+
+        if (!$response->successful()) {
+            throw new Exception("vCenter set boot order failed for {$vmId}: " . $response->body());
         }
     }
 
@@ -425,6 +481,14 @@ class VCenterService
     /** @return array<array{id: string, name: string}> */
     public function listContentLibraries(): array
     {
+        return collect($this->listContentLibrariesWithDatastores())
+            ->map(fn ($l) => ['id' => $l['id'], 'name' => $l['name']])
+            ->all();
+    }
+
+    /** @return array<array{id: string, name: string, datastore_id: ?string}> */
+    public function listContentLibrariesWithDatastores(): array
+    {
         $response = $this->client()->get("{$this->baseUrl}/content/library");
 
         if (!$response->successful()) {
@@ -434,9 +498,15 @@ class VCenterService
         return collect($response->json() ?? [])
             ->map(function (string $id) {
                 $detail = $this->client()->get("{$this->baseUrl}/content/library/{$id}");
-                return $detail->successful()
-                    ? ['id' => $id, 'name' => $detail->json('name') ?? $id]
-                    : null;
+                if (!$detail->successful()) {
+                    return null;
+                }
+                return [
+                    'id'           => $id,
+                    'name'         => $detail->json('name') ?? $id,
+                    'datastore_id' => collect($detail->json('storage_backings') ?? [])
+                        ->firstWhere('type', 'DATASTORE')['datastore_id'] ?? null,
+                ];
             })
             ->filter()
             ->values()

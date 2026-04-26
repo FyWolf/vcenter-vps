@@ -166,6 +166,12 @@ class VcenterProvisioner implements PackProvisionerContract
         $cdromId = null;
         if ($setting->default_iso_item_id) {
             $cdromId = $this->vcenter->addCdromFromLibrary($vmId, $setting->default_iso_item_id);
+            // Boot from CD first so the empty disk doesn't dead-end the install
+            try {
+                $this->vcenter->setBootOrder($vmId, ['CDROM', 'DISK', 'ETHERNET']);
+            } catch (Exception) {
+                // Boot order is best-effort; default firmware order usually falls through to CD anyway
+            }
         }
 
         $this->vcenter->powerOn($vmId);
