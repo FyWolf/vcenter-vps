@@ -2,7 +2,7 @@
   "id": "vcenter-vps",
   "name": "vCenter VPS",
   "author": "Fywolf",
-  "version": "1.0.16",
+  "version": "1.0.17",
   "description": "VPS provisioning and management via VMware vCenter. Addon to the Billing plugin.",
   "category": "plugin",
   "url": "https://github.com/FyWolf/vcenter-vps",
