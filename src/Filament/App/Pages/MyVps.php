@@ -5,8 +5,7 @@ namespace Fywolf\VcenterVps\Filament\App\Pages;
 use BackedEnum;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Pages\Page;
-use Filament\Tables\Columns\Layout\Stack;
-use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ViewColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
@@ -48,37 +47,9 @@ class MyVps extends Page implements HasTable
         return $table
             ->query($this->getInstanceQuery())
             ->columns([
-                Stack::make([
-                    TextColumn::make('display_name')
-                        ->state(fn (VpsInstance $r) => $r->name ?? $r->order?->packPrice?->pack?->name ?? 'VPS')
-                        ->weight('bold')
-                        ->size('lg')
-                        ->searchable(['name']),
-                    TextColumn::make('vm_ip')
-                        ->state(fn (VpsInstance $r) => $r->vm_ip ?? 'IP not assigned')
-                        ->color('gray')
-                        ->size('sm'),
-                    TextColumn::make('status')
-                        ->state(fn (VpsInstance $r) => match (true) {
-                            $r->isAwaitingInstall() => 'Installing',
-                            $r->isRunning() => 'Running',
-                            $r->isStopped() => 'Stopped',
-                            default => 'Unknown',
-                        })
-                        ->badge()
-                        ->color(fn (VpsInstance $r) => match (true) {
-                            $r->isAwaitingInstall() => 'warning',
-                            $r->isRunning() => 'success',
-                            $r->isStopped() => 'danger',
-                            default => 'gray',
-                        })
-                        ->icon(fn (VpsInstance $r) => match (true) {
-                            $r->isAwaitingInstall() => 'tabler-clock-hour-4',
-                            $r->isRunning() => 'tabler-circle-check',
-                            $r->isStopped() => 'tabler-circle-x',
-                            default => 'tabler-circle-dashed',
-                        }),
-                ]),
+                ViewColumn::make('vps_card')
+                    ->view('vcenter-vps::columns.vps-card')
+                    ->searchable(['name']),
             ])
             ->recordUrl(fn (VpsInstance $r) => VpsConsole::getUrl(['vpsId' => $r->id], panel: 'vps'))
             ->contentGrid(['default' => 1, 'md' => 2])

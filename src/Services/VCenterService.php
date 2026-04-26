@@ -373,18 +373,61 @@ class VCenterService
      */
     public function setBootOrder(string $vmId, array $deviceTypes): void
     {
-        $payload = [
-            'devices' => array_map(fn ($type) => ['type' => $type], $deviceTypes),
-        ];
+        $disks = null;
+        $nic   = null;
+        $devices = [];
+
+        foreach ($deviceTypes as $type) {
+            $entry = ['type' => $type];
+
+            if ($type === 'DISK') {
+                $disks ??= $this->listVmDiskIds($vmId);
+                if (empty($disks)) {
+                    continue;
+                }
+                $entry['disks'] = $disks;
+            } elseif ($type === 'ETHERNET') {
+                $nic ??= $this->getFirstVmNicId($vmId);
+                if (!$nic) {
+                    continue;
+                }
+                $entry['nic'] = $nic;
+            }
+
+            $devices[] = $entry;
+        }
 
         $response = $this->client()->put(
             "{$this->baseUrl}/vcenter/vm/{$vmId}/hardware/boot/device",
-            $payload
+            ['devices' => $devices]
         );
 
         if (!$response->successful()) {
             throw new Exception("vCenter set boot order failed for {$vmId}: " . $response->body());
         }
+    }
+
+    /** @return array<string> */
+    private function listVmDiskIds(string $vmId): array
+    {
+        $response = $this->client()->get("{$this->baseUrl}/vcenter/vm/{$vmId}/hardware/disk");
+
+        if (!$response->successful()) {
+            return [];
+        }
+
+        return collect($response->json() ?? [])->pluck('disk')->filter()->values()->all();
+    }
+
+    private function getFirstVmNicId(string $vmId): ?string
+    {
+        $response = $this->client()->get("{$this->baseUrl}/vcenter/vm/{$vmId}/hardware/ethernet");
+
+        if (!$response->successful()) {
+            return null;
+        }
+
+        return $response->json()[0]['nic'] ?? null;
     }
 
     private function resolveContentLibraryIsoPath(string $libraryItemId): string

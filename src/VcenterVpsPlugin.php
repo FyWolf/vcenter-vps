@@ -73,54 +73,54 @@ class VcenterVpsPlugin implements HasPluginSettings, Plugin
                         ->helperText('Set to 1 only for self-signed certificates in dev environments.'),
                 ]),
 
-            Fieldset::make('ISO Uploads')
+            Fieldset::make('ISO Library')
                 ->schema([
-                    $this->buildUploadLibraryField(),
+                    $this->buildIsoDatastoreField(),
                 ]),
         ];
     }
 
-    private function buildUploadLibraryField(): TextInput|Select
+    private function buildIsoDatastoreField(): TextInput|Select
     {
-        $libraries = [];
+        $datastores = [];
         $credentialsConfigured = !empty(config('vcenter-vps.host'))
             && !empty(config('vcenter-vps.user'))
             && !empty(config('vcenter-vps.password'));
 
         if ($credentialsConfigured) {
             try {
-                $libraries = collect(app(VCenterService::class)->listContentLibraries())
-                    ->mapWithKeys(fn ($lib) => [$lib['id'] => $lib['name']])
+                $datastores = collect(app(VCenterService::class)->listDatastores())
+                    ->mapWithKeys(fn ($ds) => [$ds['id'] => $ds['name']])
                     ->all();
             } catch (Exception) {}
         }
 
-        if (empty($libraries)) {
-            return TextInput::make('vcenter_upload_library_id')
-                ->label('Upload Content Library ID')
-                ->default(fn () => config('vcenter-vps.upload_library_id'))
-                ->placeholder('xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
-                ->helperText('Save vCenter credentials above first to pick from a dropdown of available libraries.');
+        if (empty($datastores)) {
+            return TextInput::make('vcenter_iso_datastore_id')
+                ->label('ISO Datastore ID')
+                ->default(fn () => config('vcenter-vps.iso_datastore_id'))
+                ->placeholder('datastore-NN')
+                ->helperText('Save vCenter credentials above first to pick from a dropdown of available datastores.');
         }
 
-        return Select::make('vcenter_upload_library_id')
-            ->label('Upload Content Library')
-            ->options($libraries)
-            ->default(fn () => config('vcenter-vps.upload_library_id'))
+        return Select::make('vcenter_iso_datastore_id')
+            ->label('ISO Datastore')
+            ->options($datastores)
+            ->default(fn () => config('vcenter-vps.iso_datastore_id'))
             ->searchable()
             ->nullable()
-            ->helperText('Library where customer-uploaded ISOs are stored. Leave blank to disable ISO uploads.');
+            ->helperText('Customers will only see ISOs from content libraries stored on this datastore. Leave blank to show ISOs from all libraries.');
     }
 
     public function saveSettings(array $data): void
     {
         $env = [];
 
-        if (!empty($data['vcenter_host']))              $env['VCENTER_HOST']              = $data['vcenter_host'];
-        if (!empty($data['vcenter_user']))              $env['VCENTER_USER']              = $data['vcenter_user'];
-        if (!empty($data['vcenter_password']))          $env['VCENTER_PASSWORD']          = $data['vcenter_password'];
-        if (isset($data['vcenter_insecure']))           $env['VCENTER_INSECURE']          = $data['vcenter_insecure'];
-        if (isset($data['vcenter_upload_library_id'])) $env['VCENTER_UPLOAD_LIBRARY_ID'] = $data['vcenter_upload_library_id'];
+        if (!empty($data['vcenter_host']))             $env['VCENTER_HOST']             = $data['vcenter_host'];
+        if (!empty($data['vcenter_user']))             $env['VCENTER_USER']             = $data['vcenter_user'];
+        if (!empty($data['vcenter_password']))         $env['VCENTER_PASSWORD']         = $data['vcenter_password'];
+        if (isset($data['vcenter_insecure']))          $env['VCENTER_INSECURE']         = $data['vcenter_insecure'];
+        if (isset($data['vcenter_iso_datastore_id']))  $env['VCENTER_ISO_DATASTORE_ID'] = $data['vcenter_iso_datastore_id'];
 
         $this->writeToEnvironment($env);
 
