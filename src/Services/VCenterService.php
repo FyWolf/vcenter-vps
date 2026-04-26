@@ -218,14 +218,18 @@ class VCenterService
 
     public function addCdromFromLibrary(string $vmId, string $libraryItemId): string
     {
+        // CDROM needs a SATA controller — create one if the VM doesn't have any
+        $this->ensureSataController($vmId);
+
         $isoPath = $this->resolveContentLibraryIsoPath($libraryItemId);
 
         $payload = [
+            'type'    => 'SATA',
             'backing' => [
                 'type'     => 'ISO_FILE',
                 'iso_file' => $isoPath,
             ],
-            'start_connected'    => true,
+            'start_connected'     => true,
             'allow_guest_control' => true,
         ];
 
@@ -236,6 +240,76 @@ class VCenterService
         }
 
         return trim($response->body(), '"');
+    }
+
+    public function ensureSataController(string $vmId): void
+    {
+        $response = $this->client()->get("{$this->baseUrl}/vcenter/vm/{$vmId}/hardware/adapter/sata");
+
+        if ($response->successful() && !empty($response->json())) {
+            return;
+        }
+
+        $createResponse = $this->client()->post(
+            "{$this->baseUrl}/vcenter/vm/{$vmId}/hardware/adapter/sata",
+            (object) []
+        );
+
+        if (!$createResponse->successful()) {
+            throw new Exception("Failed to add SATA controller to {$vmId}: " . $createResponse->body());
+        }
+    }
+
+    public function addNetworkAdapter(string $vmId, string $networkId, ?string $backingType = null): string
+    {
+        $backingType ??= $this->resolveNetworkBackingType($networkId);
+
+        $payload = [
+            'type'    => 'VMXNET3',
+            'backing' => [
+                'type'    => $backingType,
+                'network' => $networkId,
+            ],
+            'start_connected'     => true,
+            'allow_guest_control' => true,
+        ];
+
+        $response = $this->client()->post("{$this->baseUrl}/vcenter/vm/{$vmId}/hardware/ethernet", $payload);
+
+        if (!$response->successful()) {
+            throw new Exception("vCenter add network adapter failed for {$vmId}: " . $response->body());
+        }
+
+        return trim($response->body(), '"');
+    }
+
+    private function resolveNetworkBackingType(string $networkId): string
+    {
+        foreach ($this->listNetworks() as $network) {
+            if ($network['id'] === $networkId) {
+                return $network['type'] ?? 'STANDARD_PORTGROUP';
+            }
+        }
+        return 'STANDARD_PORTGROUP';
+    }
+
+    /** @return array<array{id: string, name: string, type: string}> */
+    public function listNetworks(): array
+    {
+        $response = $this->client()->get("{$this->baseUrl}/vcenter/network");
+
+        if (!$response->successful()) {
+            return [];
+        }
+
+        return collect($response->json() ?? [])
+            ->map(fn ($n) => [
+                'id'   => $n['network'],
+                'name' => $n['name'],
+                'type' => $n['type'] ?? 'STANDARD_PORTGROUP',
+            ])
+            ->values()
+            ->all();
     }
 
     public function swapCdromToLibraryItem(string $vmId, string $cdromId, string $libraryItemId): void

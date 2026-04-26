@@ -156,6 +156,13 @@ class VcenterProvisioner implements PackProvisionerContract
 
         $this->vcenter->addDisk($vmId, $price->disk ?? $setting->default_disk_gb);
 
+        // CDROM needs SATA — pre-create it so the bus is ready
+        $this->vcenter->ensureSataController($vmId);
+
+        if ($setting->network_id) {
+            $this->vcenter->addNetworkAdapter($vmId, $setting->network_id);
+        }
+
         $cdromId = null;
         if ($setting->default_iso_item_id) {
             $cdromId = $this->vcenter->addCdromFromLibrary($vmId, $setting->default_iso_item_id);

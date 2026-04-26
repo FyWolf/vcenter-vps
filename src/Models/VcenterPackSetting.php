@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property ?string $folder_id
  * @property string $datastore_id
  * @property string $cluster_id
+ * @property ?string $network_id
  * @property int $default_cpu
  * @property int $default_memory_mb
  * @property int $default_disk_gb
@@ -35,6 +36,7 @@ class VcenterPackSetting extends Model
         'folder_id',
         'datastore_id',
         'cluster_id',
+        'network_id',
         'default_cpu',
         'default_memory_mb',
         'default_disk_gb',

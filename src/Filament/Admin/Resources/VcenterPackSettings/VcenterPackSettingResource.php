@@ -128,6 +128,23 @@ class VcenterPackSettingResource extends Resource
             ->required()
             ->searchable();
 
+        $components[] = Select::make('network_id')
+            ->label('Network')
+            ->options(function () use ($credentialsConfigured) {
+                if (!$credentialsConfigured) {
+                    return [];
+                }
+                try {
+                    return self::optionsFrom(app(VCenterService::class)->listNetworks());
+                } catch (Exception) {
+                    return [];
+                }
+            })
+            ->required(fn (Get $get) => $get('provision_type') === 'iso')
+            ->visible(fn (Get $get) => $get('provision_type') === 'iso')
+            ->searchable()
+            ->helperText('Portgroup the VPS NIC will be attached to. Required for ISO-provisioned VMs (clones inherit the template\'s network).');
+
         $components[] = TextInput::make('guest_os_id')
             ->label('Guest OS ID')
             ->default('OTHER_LINUX_64')
