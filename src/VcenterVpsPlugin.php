@@ -4,11 +4,14 @@ namespace Fywolf\VcenterVps;
 
 use App\Contracts\Plugins\HasPluginSettings;
 use App\Traits\EnvironmentWriterTrait;
+use Exception;
 use Filament\Contracts\Plugin;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Panel;
 use Filament\Schemas\Components\Fieldset;
+use Fywolf\VcenterVps\Services\VCenterService;
 
 class VcenterVpsPlugin implements HasPluginSettings, Plugin
 {
@@ -72,13 +75,41 @@ class VcenterVpsPlugin implements HasPluginSettings, Plugin
 
             Fieldset::make('ISO Uploads')
                 ->schema([
-                    TextInput::make('vcenter_upload_library_id')
-                        ->label('Upload Content Library ID')
-                        ->default(fn () => config('vcenter-vps.upload_library_id'))
-                        ->placeholder('xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
-                        ->helperText('ID of the Content Library where customer-uploaded ISOs are stored. Leave blank to disable ISO uploads.'),
+                    $this->buildUploadLibraryField(),
                 ]),
         ];
+    }
+
+    private function buildUploadLibraryField(): TextInput|Select
+    {
+        $libraries = [];
+        $credentialsConfigured = !empty(config('vcenter-vps.host'))
+            && !empty(config('vcenter-vps.user'))
+            && !empty(config('vcenter-vps.password'));
+
+        if ($credentialsConfigured) {
+            try {
+                $libraries = collect(app(VCenterService::class)->listContentLibraries())
+                    ->mapWithKeys(fn ($lib) => [$lib['id'] => $lib['name']])
+                    ->all();
+            } catch (Exception) {}
+        }
+
+        if (empty($libraries)) {
+            return TextInput::make('vcenter_upload_library_id')
+                ->label('Upload Content Library ID')
+                ->default(fn () => config('vcenter-vps.upload_library_id'))
+                ->placeholder('xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
+                ->helperText('Save vCenter credentials above first to pick from a dropdown of available libraries.');
+        }
+
+        return Select::make('vcenter_upload_library_id')
+            ->label('Upload Content Library')
+            ->options($libraries)
+            ->default(fn () => config('vcenter-vps.upload_library_id'))
+            ->searchable()
+            ->nullable()
+            ->helperText('Library where customer-uploaded ISOs are stored. Leave blank to disable ISO uploads.');
     }
 
     public function saveSettings(array $data): void

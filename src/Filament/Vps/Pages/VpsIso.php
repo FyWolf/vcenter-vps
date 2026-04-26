@@ -54,13 +54,20 @@ class VpsIso extends Page
 
     public function loadAvailableIsos(): void
     {
-        $libraryId = config('vcenter-vps.upload_library_id');
-        if (!$libraryId) {
-            return;
-        }
-
         try {
-            $this->availableIsos = app(VCenterService::class)->listContentLibraryItems($libraryId);
+            $vcenter = app(VCenterService::class);
+            $isos    = [];
+
+            foreach ($vcenter->listContentLibraries() as $library) {
+                foreach ($vcenter->listContentLibraryItems($library['id']) as $item) {
+                    $isos[] = [
+                        'id'   => $item['id'],
+                        'name' => "[{$library['name']}] {$item['name']}",
+                    ];
+                }
+            }
+
+            $this->availableIsos = $isos;
         } catch (Exception) {
             $this->availableIsos = [];
         }
