@@ -3,6 +3,7 @@
 namespace Fywolf\VcenterVps\Filament\App\Pages;
 
 use Filament\Notifications\Notification;
+use Filament\Pages\Enums\SubNavigationPosition;
 use Filament\Pages\Page;
 use Filament\Panel;
 use Fywolf\VcenterVps\Filament\App\Concerns\HasVpsNavigation;
@@ -16,6 +17,8 @@ class VpsIso extends Page
 {
     use HasVpsNavigation;
     use WithFileUploads;
+
+    protected static ?SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
 
     protected string $view = 'vcenter-vps::vps-iso';
 

@@ -7,6 +7,7 @@ use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Notifications\Notification;
+use Filament\Pages\Enums\SubNavigationPosition;
 use Filament\Pages\Page;
 use Filament\Panel;
 use Filament\Schemas\Components\Concerns\HasHeaderActions;
@@ -18,6 +19,8 @@ class VpsConsole extends Page
 {
     use HasVpsNavigation;
     use InteractsWithActions, HasHeaderActions;
+
+    protected static ?SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
 
     protected string $view = 'vcenter-vps::vps-console';
 

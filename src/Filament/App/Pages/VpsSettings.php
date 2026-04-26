@@ -3,6 +3,7 @@
 namespace Fywolf\VcenterVps\Filament\App\Pages;
 
 use Filament\Notifications\Notification;
+use Filament\Pages\Enums\SubNavigationPosition;
 use Filament\Pages\Page;
 use Filament\Panel;
 use Fywolf\VcenterVps\Filament\App\Concerns\HasVpsNavigation;
@@ -11,6 +12,8 @@ use Illuminate\Support\Facades\Route;
 class VpsSettings extends Page
 {
     use HasVpsNavigation;
+
+    protected static ?SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
 
     protected string $view = 'vcenter-vps::vps-settings';
 

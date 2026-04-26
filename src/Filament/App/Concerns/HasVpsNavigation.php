@@ -3,15 +3,12 @@
 namespace Fywolf\VcenterVps\Filament\App\Concerns;
 
 use Filament\Navigation\NavigationItem;
-use Filament\Pages\Enums\SubNavigationPosition;
 use Fywolf\Billing\Enums\OrderStatus;
 use Fywolf\Billing\Models\Customer;
 use Fywolf\VcenterVps\Models\VpsInstance;
 
 trait HasVpsNavigation
 {
-    protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
-
     public VpsInstance $instance;
 
     protected function mountVps(int $vpsId): void
