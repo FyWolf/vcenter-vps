@@ -2,25 +2,22 @@
     @php
         $instance  = $this->instance;
         $order     = $instance->order;
-        $pack      = $order->packPrice->pack;
         $price     = $order->packPrice;
         $isPending = $instance->isAwaitingInstall();
         $isRunning = $instance->isRunning();
         $isStopped = $instance->isStopped();
-        $uploadLib = config('vcenter-vps.upload_library_id');
     @endphp
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
 
-        {{-- Status & info --}}
         <div class="lg:col-span-2">
             <x-filament::section>
                 <x-slot name="heading">Server Information</x-slot>
 
-                <div class="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                <div class="grid grid-cols-2 gap-6 sm:grid-cols-3">
                     <div>
                         <p class="text-xs font-medium text-gray-500 dark:text-gray-400">IP Address</p>
-                        <p class="mt-1 text-sm font-semibold text-gray-950 dark:text-white">
+                        <p class="mt-1 font-mono text-sm font-semibold text-gray-950 dark:text-white">
                             {{ $instance->vm_ip ?? '—' }}
                         </p>
                     </div>
@@ -64,7 +61,6 @@
             </x-filament::section>
         </div>
 
-        {{-- Specs --}}
         <div class="lg:col-span-1">
             <x-filament::section>
                 <x-slot name="heading">Specifications</x-slot>
@@ -92,74 +88,34 @@
             </x-filament::section>
         </div>
 
-        {{-- OS Installation (pending only) --}}
         @if($isPending)
             <div class="lg:col-span-3">
-                <x-filament::section>
-                    <x-slot name="heading">OS Installation</x-slot>
-                    <x-slot name="description">Complete the OS installation using the console, then click Done.</x-slot>
+                <x-filament::section color="warning">
+                    <x-slot name="heading">OS Installation in Progress</x-slot>
+                    <x-slot name="description">Open the console to complete the OS installation, then click Done when finished. You can also switch to the ISO tab to use a different installation image.</x-slot>
 
                     <div class="flex flex-wrap gap-3">
                         <a href="{{ route('vcenter-vps.console', $instance->id) }}"
                            target="_blank" rel="noopener"
-                           class="fi-btn fi-btn-size-md fi-btn-color-primary fi-color-primary fi-color-custom inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold shadow-sm ring-1
-                                  bg-primary-600 text-white ring-primary-600 hover:bg-primary-500 dark:bg-primary-500 dark:ring-primary-500 dark:hover:bg-primary-400">
+                           class="fi-btn fi-btn-size-md inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold shadow-sm ring-1
+                                  bg-primary-600 text-white ring-primary-600 hover:bg-primary-500
+                                  dark:bg-primary-500 dark:ring-primary-500 dark:hover:bg-primary-400">
                             <x-filament::icon icon="tabler-terminal" class="h-4 w-4"/>
-                            Open Console
+                            Open Install Console
                         </a>
-
-                        <x-filament::button
-                            wire:click="markInstallComplete"
-                            wire:confirm="Confirm the OS installation is complete?"
-                            color="success"
-                            icon="tabler-circle-check"
-                        >
-                            Installation Done
-                        </x-filament::button>
+                        <a href="{{ route('filament.app.pages.vps-iso', ['vpsId' => $instance->id]) }}"
+                           class="fi-btn fi-btn-size-md inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold shadow-sm ring-1
+                                  bg-white text-gray-950 ring-gray-950/10 hover:bg-gray-50
+                                  dark:bg-gray-800 dark:text-white dark:ring-white/20 dark:hover:bg-gray-700">
+                            <x-filament::icon icon="tabler-disc" class="h-4 w-4"/>
+                            Manage ISO
+                        </a>
                     </div>
-
-                    @if($uploadLib)
-                        <div class="mt-6 border-t border-gray-200 pt-6 dark:border-white/10">
-                            <p class="mb-4 text-sm font-medium text-gray-950 dark:text-white">Use a different ISO</p>
-
-                            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                                {{-- URL --}}
-                                <div>
-                                    <p class="mb-2 text-xs font-semibold text-gray-600 dark:text-gray-300">From URL</p>
-                                    <div class="flex gap-2">
-                                        <input wire:model="isoUrl"
-                                               type="url"
-                                               placeholder="https://example.com/debian.iso"
-                                               class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm
-                                                      placeholder:text-gray-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500
-                                                      dark:border-white/20 dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-500">
-                                        <x-filament::button wire:click="swapIsoFromUrl" color="gray" size="sm">
-                                            Attach
-                                        </x-filament::button>
-                                    </div>
-                                </div>
-
-                                {{-- File --}}
-                                <div>
-                                    <p class="mb-2 text-xs font-semibold text-gray-600 dark:text-gray-300">Upload ISO (max 2 GB)</p>
-                                    <div class="flex gap-2">
-                                        <input wire:model="isoFile"
-                                               type="file"
-                                               accept=".iso"
-                                               class="block w-full text-sm text-gray-700 dark:text-gray-300
-                                                      file:mr-3 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-700
-                                                      dark:file:bg-gray-700 dark:file:text-gray-300">
-                                        <x-filament::button wire:click="swapIsoFromFile" color="gray" size="sm">
-                                            Upload
-                                        </x-filament::button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    @endif
                 </x-filament::section>
             </div>
         @endif
 
     </div>
+
+    <x-filament-actions::modals />
 </x-filament-panels::page>

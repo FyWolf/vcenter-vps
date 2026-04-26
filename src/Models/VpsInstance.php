@@ -10,6 +10,7 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property int $order_id
+ * @property ?string $name
  * @property string $vm_id
  * @property ?string $vm_ip
  * @property ?string $state_cache
@@ -28,6 +29,7 @@ class VpsInstance extends Model
 
     protected $fillable = [
         'order_id',
+        'name',
         'vm_id',
         'vm_ip',
         'state_cache',

@@ -10,28 +10,16 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Panel;
 use Filament\Schemas\Components\Concerns\HasHeaderActions;
-use Fywolf\Billing\Enums\OrderStatus;
-use Fywolf\Billing\Models\Customer;
-use Fywolf\VcenterVps\Jobs\UploadIsoJob;
-use Fywolf\VcenterVps\Models\VpsInstance;
+use Fywolf\VcenterVps\Filament\App\Concerns\HasVpsNavigation;
 use Fywolf\VcenterVps\Services\VCenterService;
 use Illuminate\Support\Facades\Route;
-use Livewire\Attributes\Validate;
-use Livewire\WithFileUploads;
 
 class VpsConsole extends Page
 {
+    use HasVpsNavigation;
     use InteractsWithActions, HasHeaderActions;
-    use WithFileUploads;
 
     protected string $view = 'vcenter-vps::vps-console';
-
-    public VpsInstance $instance;
-
-    public ?string $isoUrl = null;
-
-    #[Validate(['isoFile' => 'nullable|file|mimes:iso|max:2097152'])]
-    public $isoFile = null;
 
     public static function routes(Panel $panel): void
     {
@@ -43,24 +31,7 @@ class VpsConsole extends Page
 
     public function mount(int $vpsId): void
     {
-        $customer = Customer::where('user_id', auth()->id())->firstOrFail();
-
-        $this->instance = VpsInstance::whereHas('order', fn ($q) => $q
-            ->where('customer_id', $customer->id)
-            ->whereIn('status', [OrderStatus::Active, OrderStatus::GracePeriod, OrderStatus::Cancelled])
-        )
-            ->with(['order.packPrice.pack'])
-            ->findOrFail($vpsId);
-    }
-
-    public static function shouldRegisterNavigation(): bool
-    {
-        return false;
-    }
-
-    public function getTitle(): string
-    {
-        return $this->instance->order->packPrice->pack->name ?? 'VPS Console';
+        $this->mountVps($vpsId);
     }
 
     protected function getHeaderActions(): array
@@ -131,51 +102,5 @@ class VpsConsole extends Page
         } catch (Exception $e) {
             Notification::make()->title('Failed to restart VPS')->body($e->getMessage())->danger()->send();
         }
-    }
-
-    public function markInstallComplete(): void
-    {
-        $this->instance->update(['install_status' => VpsInstance::INSTALL_COMPLETE]);
-        $this->instance->refresh();
-        Notification::make()->title('Installation marked as complete')->success()->send();
-    }
-
-    public function swapIsoFromUrl(): void
-    {
-        $this->validate(['isoUrl' => 'required|url']);
-
-        $libraryId = config('vcenter-vps.upload_library_id');
-        if (!$libraryId) {
-            Notification::make()->title('ISO upload not available')->body('No upload library configured.')->warning()->send();
-            return;
-        }
-
-        UploadIsoJob::dispatch($this->instance->id, $libraryId, $this->isoUrl, 'url');
-        $this->isoUrl = null;
-        Notification::make()
-            ->title('ISO download queued')
-            ->body('Your ISO is being downloaded and attached. This may take a few minutes.')
-            ->success()
-            ->send();
-    }
-
-    public function swapIsoFromFile(): void
-    {
-        $this->validate(['isoFile' => 'required|file|max:2097152']);
-
-        $libraryId = config('vcenter-vps.upload_library_id');
-        if (!$libraryId) {
-            Notification::make()->title('ISO upload not available')->body('No upload library configured.')->warning()->send();
-            return;
-        }
-
-        $path = $this->isoFile->store('iso-uploads');
-        $this->isoFile = null;
-        UploadIsoJob::dispatch($this->instance->id, $libraryId, $path, 'storage');
-        Notification::make()
-            ->title('ISO upload queued')
-            ->body('Your ISO is being uploaded and attached. This may take a few minutes.')
-            ->success()
-            ->send();
     }
 }

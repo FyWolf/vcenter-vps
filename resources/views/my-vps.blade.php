@@ -42,7 +42,7 @@
                             <div style="min-width: 0; flex: 1;">
                                 <div style="font-size: 0.875rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
                                      class="text-gray-950 dark:text-white">
-                                    {{ $pack->name }}
+                                    {{ $instance->name ?? $pack->name }}
                                 </div>
                                 <div style="font-size: 0.75rem; display: flex; align-items: center; gap: 0.4rem;"
                                      class="text-gray-500 dark:text-gray-400">
