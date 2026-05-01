@@ -14,7 +14,6 @@ use Filament\Panel;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Fywolf\VcenterVps\Filament\Vps\Concerns\HasVpsContext;
-use Fywolf\VcenterVps\Models\VcenterPackSetting;
 use Fywolf\VcenterVps\Models\VpsInstance;
 use Fywolf\VcenterVps\Services\VCenterService;
 use Illuminate\Support\Facades\Route;
@@ -62,7 +61,7 @@ class VpsBoot extends Page implements HasForms
     {
         try {
             $vcenter = app(VCenterService::class);
-            $datastoreId = $this->getVpsDatastoreId();
+            $datastoreId = config('vcenter-vps.iso_datastore_id');
             $isos = [];
 
             foreach ($vcenter->listContentLibrariesWithDatastores() as $library) {
@@ -79,16 +78,6 @@ class VpsBoot extends Page implements HasForms
         } catch (Exception) {
             $this->availableIsos = [];
         }
-    }
-
-    private function getVpsDatastoreId(): ?string
-    {
-        $packId = $this->instance->order?->packPrice?->pack_id;
-        if (!$packId) {
-            return null;
-        }
-
-        return VcenterPackSetting::where('pack_id', $packId)->value('datastore_id');
     }
 
     private function detectBootOrder(): string
@@ -151,7 +140,7 @@ class VpsBoot extends Page implements HasForms
 
             Section::make('Boot ISO')
                 ->columnSpanFull()
-                ->description('Mount an ISO from the vCenter content library. Only ISOs stored on this VPS\'s datastore are listed.')
+                ->description('Mount an ISO from the vCenter content library.')
                 ->footerActions([
                     Action::make('attach_from_library')
                         ->label('Attach')
@@ -169,7 +158,7 @@ class VpsBoot extends Page implements HasForms
                         ->label('ISO')
                         ->options(fn () => $this->availableIsos)
                         ->searchable()
-                        ->placeholder(empty($this->availableIsos) ? 'No ISOs found on this datastore' : 'Select an ISO')
+                        ->placeholder(empty($this->availableIsos) ? 'No ISOs available — ask your administrator to configure the ISO datastore' : 'Select an ISO')
                         ->disabled(fn () => empty($this->availableIsos)),
                 ]),
         ]);
