@@ -117,7 +117,7 @@ class VpsInstanceResource extends Resource
                     ->label('Set IP')
                     ->icon('tabler-network')
                     ->color('gray')
-                    ->form([
+                    ->schema([
                         TextInput::make('vm_ip')
                             ->label('IP Address')
                             ->required()
