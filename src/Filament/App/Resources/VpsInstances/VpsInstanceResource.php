@@ -32,7 +32,7 @@ class VpsInstanceResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'name';
 
-    protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
+    protected static ?SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
 
     public static function canAccess(): bool
     {
