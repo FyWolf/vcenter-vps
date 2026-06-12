@@ -6,7 +6,7 @@ use Exception;
 use Fywolf\Billing\Contracts\PackProvisionerContract;
 use Fywolf\Billing\Models\AuditLog;
 use Fywolf\Billing\Models\Order;
-use Fywolf\VcenterVps\Filament\App\Pages\MyVps;
+use Fywolf\VcenterVps\Filament\App\Resources\VpsInstances\VpsInstanceResource;
 use Fywolf\VcenterVps\Models\VcenterPackSetting;
 use Fywolf\VcenterVps\Models\VpsInstance;
 use Fywolf\VcenterVps\Services\VCenterService;
@@ -106,11 +106,13 @@ class VcenterProvisioner implements PackProvisionerContract
 
     public function getManagementUrl(Order $order): ?string
     {
-        if (!$this->isProvisioned($order)) {
+        $instance = VpsInstance::where('order_id', $order->id)->first();
+
+        if (!$instance) {
             return null;
         }
 
-        return MyVps::getUrl(panel: 'app');
+        return VpsInstanceResource::getUrl('view', ['record' => $instance], panel: 'app');
     }
 
     private function provisionFromClone(Order $order, VcenterPackSetting $setting): void

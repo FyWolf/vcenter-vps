@@ -1,6 +1,6 @@
 <?php
 
-namespace Fywolf\VcenterVps\Filament\Vps\Pages;
+namespace Fywolf\VcenterVps\Filament\App\Resources\VpsInstances\Pages;
 
 use BackedEnum;
 use Filament\Actions\Action;
@@ -9,18 +9,21 @@ use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
-use Filament\Pages\Page;
-use Filament\Pages\PageConfiguration;
-use Filament\Panel;
+use Filament\Resources\Pages\Concerns\InteractsWithRecord;
+use Filament\Resources\Pages\Page;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Fywolf\VcenterVps\Filament\Vps\Concerns\HasVpsContext;
-use Illuminate\Support\Facades\Route;
+use Fywolf\VcenterVps\Filament\App\Resources\VpsInstances\VpsInstanceResource;
 
-class VpsSettings extends Page implements HasForms
+/**
+ * @property \Fywolf\VcenterVps\Models\VpsInstance $record
+ */
+class SettingsVps extends Page implements HasForms
 {
-    use HasVpsContext;
     use InteractsWithForms;
+    use InteractsWithRecord;
+
+    protected static string $resource = VpsInstanceResource::class;
 
     protected static ?int $navigationSort = 3;
     protected static string|BackedEnum|null $navigationIcon = 'tabler-settings';
@@ -28,12 +31,11 @@ class VpsSettings extends Page implements HasForms
 
     public ?string $name = null;
 
-    public static function routes(Panel $panel, ?PageConfiguration $configuration = null): void
+    public function mount(int|string $record): void
     {
-        Route::get('/{vpsId}/settings', static::class)
-            ->middleware(static::getRouteMiddleware($panel))
-            ->withoutMiddleware(static::getWithoutRouteMiddleware($panel))
-            ->name('vps-settings');
+        $this->record = $this->resolveRecord($record);
+        $this->name = $this->record->name;
+        $this->form->fill();
     }
 
     public static function getNavigationLabel(): string
@@ -44,13 +46,6 @@ class VpsSettings extends Page implements HasForms
     public function getTitle(): string
     {
         return 'Settings';
-    }
-
-    public function mount(int $vpsId): void
-    {
-        $this->loadInstance($vpsId);
-        $this->name = $this->instance->name;
-        $this->form->fill();
     }
 
     public function form(Schema $schema): Schema
@@ -67,7 +62,7 @@ class VpsSettings extends Page implements HasForms
                 ->schema([
                     TextInput::make('name')
                         ->label('Display Name')
-                        ->placeholder($this->instance->order?->packPrice?->pack?->name ?? 'VPS')
+                        ->placeholder($this->record->order?->packPrice?->pack?->name ?? 'VPS')
                         ->maxLength(191)
                         ->helperText('Used as the display name across the panel. Leave blank to use the pack name.'),
                 ]),
@@ -77,29 +72,29 @@ class VpsSettings extends Page implements HasForms
                 ->columns(3)
                 ->schema([
                     TextEntry::make('pack')
-                        ->state(fn () => $this->instance->order?->packPrice?->pack?->name ?? '—'),
+                        ->state(fn () => $this->record->order?->packPrice?->pack?->name ?? '—'),
                     TextEntry::make('vm_ip')
                         ->label('IP Address')
-                        ->state(fn () => $this->instance->vm_ip ?? '—')
+                        ->state(fn () => $this->record->vm_ip ?? '—')
                         ->copyable(),
                     TextEntry::make('cores')
                         ->label('vCPU')
-                        ->state(fn () => $this->instance->order?->packPrice?->cores
-                            ? $this->instance->order->packPrice->cores . ' cores'
+                        ->state(fn () => $this->record->order?->packPrice?->cores
+                            ? $this->record->order->packPrice->cores . ' cores'
                             : '—'),
                     TextEntry::make('memory')
                         ->label('RAM')
-                        ->state(fn () => ($mem = $this->instance->order?->packPrice?->memory)
+                        ->state(fn () => ($mem = $this->record->order?->packPrice?->memory)
                             ? number_format($mem / 1024, 1) . ' GB'
                             : '—'),
                     TextEntry::make('disk')
                         ->label('Disk')
-                        ->state(fn () => $this->instance->order?->packPrice?->disk
-                            ? $this->instance->order->packPrice->disk . ' GB'
+                        ->state(fn () => $this->record->order?->packPrice?->disk
+                            ? $this->record->order->packPrice->disk . ' GB'
                             : '—'),
                     TextEntry::make('expires')
                         ->label('Expires')
-                        ->state(fn () => $this->instance->order?->expires_at?->diffForHumans() ?? '—'),
+                        ->state(fn () => $this->record->order?->expires_at?->diffForHumans() ?? '—'),
                 ]),
         ]);
     }
@@ -107,8 +102,8 @@ class VpsSettings extends Page implements HasForms
     public function save(): void
     {
         $data = $this->form->getState();
-        $this->instance->update(['name' => $data['name'] ?: null]);
-        $this->instance->refresh();
+        $this->record->update(['name' => $data['name'] ?: null]);
+        $this->record->refresh();
         Notification::make()->title('Settings saved')->success()->send();
     }
 }

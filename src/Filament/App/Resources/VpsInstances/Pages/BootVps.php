@@ -1,6 +1,6 @@
 <?php
 
-namespace Fywolf\VcenterVps\Filament\Vps\Pages;
+namespace Fywolf\VcenterVps\Filament\App\Resources\VpsInstances\Pages;
 
 use BackedEnum;
 use Exception;
@@ -9,20 +9,23 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
-use Filament\Pages\Page;
-use Filament\Pages\PageConfiguration;
-use Filament\Panel;
+use Filament\Resources\Pages\Concerns\InteractsWithRecord;
+use Filament\Resources\Pages\Page;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Fywolf\VcenterVps\Filament\Vps\Concerns\HasVpsContext;
+use Fywolf\VcenterVps\Filament\App\Resources\VpsInstances\VpsInstanceResource;
 use Fywolf\VcenterVps\Models\VpsInstance;
 use Fywolf\VcenterVps\Services\VCenterService;
-use Illuminate\Support\Facades\Route;
 
-class VpsBoot extends Page implements HasForms
+/**
+ * @property \Fywolf\VcenterVps\Models\VpsInstance $record
+ */
+class BootVps extends Page implements HasForms
 {
-    use HasVpsContext;
     use InteractsWithForms;
+    use InteractsWithRecord;
+
+    protected static string $resource = VpsInstanceResource::class;
 
     protected static ?int $navigationSort = 2;
     protected static string|BackedEnum|null $navigationIcon = 'tabler-disc';
@@ -32,12 +35,12 @@ class VpsBoot extends Page implements HasForms
     public ?string $bootOrder = 'disk_first';
     public array $availableIsos = [];
 
-    public static function routes(Panel $panel, ?PageConfiguration $configuration = null): void
+    public function mount(int|string $record): void
     {
-        Route::get('/{vpsId}/boot', static::class)
-            ->middleware(static::getRouteMiddleware($panel))
-            ->withoutMiddleware(static::getWithoutRouteMiddleware($panel))
-            ->name('vps-boot');
+        $this->record = $this->resolveRecord($record);
+        $this->loadAvailableIsos();
+        $this->bootOrder = $this->detectBootOrder();
+        $this->form->fill();
     }
 
     public static function getNavigationLabel(): string
@@ -48,14 +51,6 @@ class VpsBoot extends Page implements HasForms
     public function getTitle(): string
     {
         return 'Boot';
-    }
-
-    public function mount(int $vpsId): void
-    {
-        $this->loadInstance($vpsId);
-        $this->loadAvailableIsos();
-        $this->bootOrder = $this->detectBootOrder();
-        $this->form->fill();
     }
 
     public function loadAvailableIsos(): void
@@ -84,7 +79,7 @@ class VpsBoot extends Page implements HasForms
     private function detectBootOrder(): string
     {
         try {
-            $order = app(VCenterService::class)->getBootOrder($this->instance->vm_id);
+            $order = app(VCenterService::class)->getBootOrder($this->record->vm_id);
             return match ($order[0] ?? null) {
                 'CDROM'    => 'cd_first',
                 'ETHERNET' => 'network_first',
@@ -100,14 +95,14 @@ class VpsBoot extends Page implements HasForms
         return $schema->components([
             Section::make('Complete OS Installation')
                 ->columnSpanFull()
-                ->visible(fn () => $this->instance->isAwaitingInstall())
+                ->visible(fn () => $this->record->isAwaitingInstall())
                 ->description('Open the console to complete OS installation, then mark it as done.')
                 ->footerActions([
                     Action::make('open_install_console')
                         ->label('Open Console')
                         ->icon('tabler-terminal')
                         ->color('primary')
-                        ->url(fn () => route('vcenter-vps.console', $this->instance->id))
+                        ->url(fn () => route('vcenter-vps.console', $this->record->id))
                         ->openUrlInNewTab(),
                     Action::make('mark_install_complete')
                         ->label('Mark as Done')
@@ -168,13 +163,13 @@ class VpsBoot extends Page implements HasForms
     public function markInstallComplete(): void
     {
         try {
-            app(VCenterService::class)->setBootOrder($this->instance->vm_id, ['DISK', 'CDROM', 'ETHERNET']);
+            app(VCenterService::class)->setBootOrder($this->record->vm_id, ['DISK', 'CDROM', 'ETHERNET']);
         } catch (Exception) {
             // best-effort
         }
 
-        $this->instance->update(['install_status' => VpsInstance::INSTALL_COMPLETE]);
-        $this->instance->refresh();
+        $this->record->update(['install_status' => VpsInstance::INSTALL_COMPLETE]);
+        $this->record->refresh();
         $this->bootOrder = 'disk_first';
         Notification::make()->title('Installation marked as complete')->success()->send();
     }
@@ -190,7 +185,7 @@ class VpsBoot extends Page implements HasForms
         };
 
         try {
-            app(VCenterService::class)->setBootOrder($this->instance->vm_id, $order);
+            app(VCenterService::class)->setBootOrder($this->record->vm_id, $order);
             Notification::make()->title('Boot order updated')->success()->send();
         } catch (Exception $e) {
             Notification::make()->title('Failed to update boot order')->body($e->getMessage())->danger()->send();
@@ -207,19 +202,19 @@ class VpsBoot extends Page implements HasForms
         try {
             $service = app(VCenterService::class);
 
-            if ($this->instance->cdrom_id) {
+            if ($this->record->cdrom_id) {
                 $service->swapCdromToLibraryItem(
-                    $this->instance->vm_id,
-                    $this->instance->cdrom_id,
+                    $this->record->vm_id,
+                    $this->record->cdrom_id,
                     $this->selectedLibraryItemId
                 );
             } else {
-                $cdromId = $service->addCdromFromLibrary($this->instance->vm_id, $this->selectedLibraryItemId);
-                $this->instance->update(['cdrom_id' => $cdromId]);
+                $cdromId = $service->addCdromFromLibrary($this->record->vm_id, $this->selectedLibraryItemId);
+                $this->record->update(['cdrom_id' => $cdromId]);
             }
 
-            $this->instance->update(['iso_item_id' => $this->selectedLibraryItemId]);
-            $this->instance->refresh();
+            $this->record->update(['iso_item_id' => $this->selectedLibraryItemId]);
+            $this->record->refresh();
             $this->selectedLibraryItemId = null;
 
             Notification::make()->title('ISO attached')->success()->send();
