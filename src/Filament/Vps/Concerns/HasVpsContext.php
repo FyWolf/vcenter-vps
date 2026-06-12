@@ -28,6 +28,8 @@ trait HasVpsContext
         bool $isAbsolute = true,
         ?string $panel = null,
         ?Model $tenant = null,
+        bool $shouldGuessMissingParameters = false,
+        ?string $configuration = null,
     ): string {
         if (!isset($parameters['vpsId'])) {
             $current = request()?->route('vpsId');
@@ -36,6 +38,6 @@ trait HasVpsContext
             }
         }
 
-        return parent::getUrl($parameters, $isAbsolute, $panel, $tenant);
+        return parent::getUrl($parameters, $isAbsolute, $panel, $tenant, $shouldGuessMissingParameters, $configuration);
     }
 }
