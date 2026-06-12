@@ -10,6 +10,7 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Pages\PageConfiguration;
 use Filament\Panel;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -27,7 +28,7 @@ class VpsSettings extends Page implements HasForms
 
     public ?string $name = null;
 
-    public static function routes(Panel $panel): void
+    public static function routes(Panel $panel, ?PageConfiguration $configuration = null): void
     {
         Route::get('/{vpsId}/settings', static::class)
             ->middleware(static::getRouteMiddleware($panel))

@@ -12,6 +12,7 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Pages\PageConfiguration;
 use Filament\Panel;
 use Filament\Schemas\Components\Concerns\HasHeaderActions;
 use Filament\Schemas\Components\Section;
@@ -30,7 +31,7 @@ class VpsConsole extends Page implements HasForms
     protected static string|BackedEnum|null $navigationIcon = 'tabler-server';
     protected string $view = 'vcenter-vps::vps-console';
 
-    public static function routes(Panel $panel): void
+    public static function routes(Panel $panel, ?PageConfiguration $configuration = null): void
     {
         Route::get('/{vpsId}', static::class)
             ->middleware(static::getRouteMiddleware($panel))
