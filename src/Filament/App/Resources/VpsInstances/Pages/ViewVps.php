@@ -6,14 +6,12 @@ use BackedEnum;
 use Exception;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
-use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
-use Filament\Schemas\Components\Concerns\HasHeaderActions;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Fywolf\VcenterVps\Filament\App\Resources\VpsInstances\VpsInstanceResource;
@@ -24,8 +22,6 @@ use Fywolf\VcenterVps\Services\VCenterService;
  */
 class ViewVps extends Page implements HasForms
 {
-    use HasHeaderActions;
-    use InteractsWithActions;
     use InteractsWithForms;
     use InteractsWithRecord;
 
