@@ -2,13 +2,12 @@
 
 namespace Fywolf\VcenterVps\Models;
 
-use Fywolf\Billing\Models\Pack;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * @property int $id
- * @property int $pack_id
+ * @property int $billing_pack_id
+ * @property ?string $pack_name
  * @property string $provision_type  'clone' | 'iso'
  * @property string $guest_os_id
  * @property ?string $default_iso_item_id
@@ -20,14 +19,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $default_cpu
  * @property int $default_memory_mb
  * @property int $default_disk_gb
- * @property Pack $pack
  */
 class VcenterPackSetting extends Model
 {
     protected $table = 'vcenter_pack_settings';
 
     protected $fillable = [
-        'pack_id',
+        'billing_pack_id',
+        'pack_name',
         'provision_type',
         'placement_type',
         'guest_os_id',
@@ -42,11 +41,12 @@ class VcenterPackSetting extends Model
         'default_disk_gb',
     ];
 
-    public function pack(): BelongsTo
-    {
-        return $this->belongsTo(Pack::class, 'pack_id');
-    }
-
+    /**
+     * `pack_name` is a copy of billing's pack name, refreshed whenever billing
+     * sends one. It exists so the admin list renders without a round trip; the
+     * pack itself is billing's, and `billing_pack_id` is the only identifier
+     * that matters when the two sides talk.
+     */
     public function isIsoProvision(): bool
     {
         return $this->provision_type === 'iso';

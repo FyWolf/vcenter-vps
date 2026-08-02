@@ -8,8 +8,6 @@ use Filament\Resources\Pages\Page;
 use Filament\Resources\Resource;
 use Filament\Tables\Columns\ViewColumn;
 use Filament\Tables\Table;
-use Fywolf\Billing\Enums\OrderStatus;
-use Fywolf\Billing\Models\Customer;
 use Fywolf\VcenterVps\Filament\App\Resources\VpsInstances\Pages\BootVps;
 use Fywolf\VcenterVps\Filament\App\Resources\VpsInstances\Pages\ListVps;
 use Fywolf\VcenterVps\Filament\App\Resources\VpsInstances\Pages\SettingsVps;
@@ -54,20 +52,18 @@ class VpsInstanceResource extends Resource
         return static::getEloquentQuery()->exists();
     }
 
+    /**
+     * Scoped entirely on local columns — see VpsInstance::scopeOwnedBy(). There
+     * is nothing to eager-load any more: the pack name and order status the card
+     * renders are columns on the instance itself, copied there by billing.
+     */
     public static function getEloquentQuery(): Builder
     {
-        $customer = Customer::where('user_id', auth()->id())->first();
-
-        if (!$customer) {
+        if (! auth()->check()) {
             return parent::getEloquentQuery()->whereRaw('1 = 0');
         }
 
-        return parent::getEloquentQuery()
-            ->whereHas('order', fn (Builder $q) => $q
-                ->where('customer_id', $customer->id)
-                ->whereIn('status', [OrderStatus::Active, OrderStatus::GracePeriod, OrderStatus::Cancelled])
-            )
-            ->with(['order.packPrice.pack']);
+        return parent::getEloquentQuery()->ownedBy((int) auth()->id());
     }
 
     public static function getRecordSubNavigation(Page $page): array

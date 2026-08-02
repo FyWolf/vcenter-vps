@@ -95,11 +95,14 @@ class ViewVps extends Page implements HasForms
                     TextEntry::make('order_status')
                         ->label('Order Status')
                         ->badge()
-                        ->state(fn () => $this->record->order->status->getLabel()),
+                        // Falls back to billing's raw string for a status this
+                        // plugin does not model, rather than erroring on null.
+                        ->state(fn () => $this->record->orderStatus()?->label()
+                            ?? ($this->record->order_status ?: '—')),
                     TextEntry::make('expires')
                         ->label('Expires')
-                        ->state(fn () => $this->record->order->expires_at?->diffForHumans() ?? '—')
-                        ->visible(fn () => (bool) $this->record->order->expires_at),
+                        ->state(fn () => $this->record->order_expires_at?->diffForHumans() ?? '—')
+                        ->visible(fn () => (bool) $this->record->order_expires_at),
                     TextEntry::make('state_checked_at')
                         ->label('Status checked')
                         ->state(fn () => $this->record->state_checked_at?->diffForHumans() ?? '—')
@@ -112,18 +115,18 @@ class ViewVps extends Page implements HasForms
                 ->schema([
                     TextEntry::make('cores')
                         ->label('vCPU')
-                        ->state(fn () => $this->record->order->packPrice->cores
-                            ? $this->record->order->packPrice->cores . ' cores'
+                        ->state(fn () => $this->record->spec_cores
+                            ? $this->record->spec_cores . ' cores'
                             : '—'),
                     TextEntry::make('memory')
                         ->label('RAM')
-                        ->state(fn () => ($mem = $this->record->order->packPrice->memory)
+                        ->state(fn () => ($mem = $this->record->spec_memory_mb)
                             ? number_format($mem / 1024, 1) . ' GB'
                             : '—'),
                     TextEntry::make('disk')
                         ->label('Disk')
-                        ->state(fn () => $this->record->order->packPrice->disk
-                            ? $this->record->order->packPrice->disk . ' GB'
+                        ->state(fn () => $this->record->spec_disk_gb
+                            ? $this->record->spec_disk_gb . ' GB'
                             : '—'),
                 ]),
         ]);

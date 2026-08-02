@@ -62,7 +62,7 @@ class SettingsVps extends Page implements HasForms
                 ->schema([
                     TextInput::make('name')
                         ->label('Display Name')
-                        ->placeholder($this->record->order?->packPrice?->pack?->name ?? 'VPS')
+                        ->placeholder($this->record->pack_name ?? 'VPS')
                         ->maxLength(191)
                         ->helperText('Used as the display name across the panel. Leave blank to use the pack name.'),
                 ]),
@@ -72,29 +72,29 @@ class SettingsVps extends Page implements HasForms
                 ->columns(3)
                 ->schema([
                     TextEntry::make('pack')
-                        ->state(fn () => $this->record->order?->packPrice?->pack?->name ?? '—'),
+                        ->state(fn () => $this->record->pack_name ?? '—'),
                     TextEntry::make('vm_ip')
                         ->label('IP Address')
                         ->state(fn () => $this->record->vm_ip ?? '—')
                         ->copyable(),
                     TextEntry::make('cores')
                         ->label('vCPU')
-                        ->state(fn () => $this->record->order?->packPrice?->cores
-                            ? $this->record->order->packPrice->cores . ' cores'
+                        ->state(fn () => $this->record->spec_cores
+                            ? $this->record->spec_cores . ' cores'
                             : '—'),
                     TextEntry::make('memory')
                         ->label('RAM')
-                        ->state(fn () => ($mem = $this->record->order?->packPrice?->memory)
+                        ->state(fn () => ($mem = $this->record->spec_memory_mb)
                             ? number_format($mem / 1024, 1) . ' GB'
                             : '—'),
                     TextEntry::make('disk')
                         ->label('Disk')
-                        ->state(fn () => $this->record->order?->packPrice?->disk
-                            ? $this->record->order->packPrice->disk . ' GB'
+                        ->state(fn () => $this->record->spec_disk_gb
+                            ? $this->record->spec_disk_gb . ' GB'
                             : '—'),
                     TextEntry::make('expires')
                         ->label('Expires')
-                        ->state(fn () => $this->record->order?->expires_at?->diffForHumans() ?? '—'),
+                        ->state(fn () => $this->record->order_expires_at?->diffForHumans() ?? '—'),
                 ]),
         ]);
     }

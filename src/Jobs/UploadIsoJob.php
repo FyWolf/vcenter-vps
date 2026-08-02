@@ -3,7 +3,7 @@
 namespace Fywolf\VcenterVps\Jobs;
 
 use Exception;
-use Fywolf\Billing\Models\AuditLog;
+use Fywolf\VcenterVps\Billing\AuditLogger;
 use Fywolf\VcenterVps\Models\VpsInstance;
 use Fywolf\VcenterVps\Services\VCenterService;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -37,7 +37,7 @@ class UploadIsoJob implements ShouldQueue
     {
         $instance = VpsInstance::findOrFail($this->instanceId);
         $service  = app(VCenterService::class);
-        $itemName = "customer-iso-order-{$instance->order_id}-" . now()->format('YmdHis');
+        $itemName = "customer-iso-order-{$instance->billing_order_id}-" . now()->format('YmdHis');
 
         $itemId = $this->isoSourceType === 'url'
             ? $this->handleUrlPull($service, $itemName)
@@ -52,11 +52,11 @@ class UploadIsoJob implements ShouldQueue
 
         $instance->update(['iso_item_id' => $itemId]);
 
-        AuditLog::record('vps_iso_swapped', [
+        AuditLogger::record('vps_iso_swapped', [
             'vm_id'       => $instance->vm_id,
             'iso_item_id' => $itemId,
             'source_type' => $this->isoSourceType,
-        ], $instance->order);
+        ], $instance->billing_order_id);
     }
 
     public function failed(Throwable $exception): void
@@ -67,9 +67,9 @@ class UploadIsoJob implements ShouldQueue
 
         $instance = VpsInstance::find($this->instanceId);
         if ($instance) {
-            AuditLog::record('vps_iso_upload_failed', [
+            AuditLogger::record('vps_iso_upload_failed', [
                 'error' => $exception->getMessage(),
-            ], $instance->order);
+            ], $instance->billing_order_id);
         }
     }
 

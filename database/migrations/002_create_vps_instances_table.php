@@ -19,8 +19,6 @@ return new class extends Migration
             $table->string('iso_item_id')->nullable();
             $table->string('cdrom_id')->nullable();
             $table->timestamps();
-
-            $table->foreign('order_id')->references('id')->on('billing_orders')->cascadeOnDelete();
         });
     }
 

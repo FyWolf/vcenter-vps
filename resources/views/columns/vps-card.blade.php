@@ -1,9 +1,6 @@
 @php
     /** @var \Fywolf\VcenterVps\Models\VpsInstance $instance */
     $instance  = $getRecord();
-    $order     = $instance->order;
-    $price     = $order?->packPrice;
-    $pack      = $price?->pack;
 
     $isPending = $instance->isAwaitingInstall();
     $isRunning = $instance->isRunning();
@@ -16,7 +13,7 @@
         default    => ['tabler-question-mark','gray',    'Unknown',    '#6B7280'],
     };
 
-    $displayName = $instance->name ?? $pack?->name ?? 'VPS';
+    $displayName = $instance->name ?? $instance->pack_name ?? 'VPS';
 @endphp
 
 <div class="relative cursor-pointer">
@@ -42,21 +39,21 @@
             <div class="hidden sm:block w-full max-w-xs">
                 <p class="text-sm dark:text-gray-400">CPU</p>
                 <p class="text-md font-semibold">
-                    {{ $price?->cores ? $price->cores . ' cores' : '—' }}
+                    {{ $instance->spec_cores ? $instance->spec_cores . ' cores' : '—' }}
                 </p>
             </div>
 
             <div class="hidden sm:block w-full max-w-xs">
                 <p class="text-sm dark:text-gray-400">Memory</p>
                 <p class="text-md font-semibold">
-                    {{ $price?->memory ? number_format($price->memory / 1024, 1) . ' GB' : '—' }}
+                    {{ $instance->spec_memory_mb ? number_format($instance->spec_memory_mb / 1024, 1) . ' GB' : '—' }}
                 </p>
             </div>
 
             <div class="hidden sm:block w-full max-w-xs">
                 <p class="text-sm dark:text-gray-400">Disk</p>
                 <p class="text-md font-semibold">
-                    {{ $price?->disk ? $price->disk . ' GB' : '—' }}
+                    {{ $instance->spec_disk_gb ? $instance->spec_disk_gb . ' GB' : '—' }}
                 </p>
             </div>
 

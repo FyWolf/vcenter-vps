@@ -3,16 +3,18 @@
 namespace Fywolf\VcenterVps\Filament\Admin\Resources\VcenterPackSettings;
 
 use Exception;
-use Fywolf\Billing\Models\Pack;
+use Fywolf\VcenterVps\Billing\BillingClient;
 use Fywolf\VcenterVps\Filament\Admin\Resources\VcenterPackSettings\Pages\CreateVcenterPackSetting;
 use Fywolf\VcenterVps\Filament\Admin\Resources\VcenterPackSettings\Pages\EditVcenterPackSetting;
 use Fywolf\VcenterVps\Filament\Admin\Resources\VcenterPackSettings\Pages\ListVcenterPackSettings;
 use Fywolf\VcenterVps\Models\VcenterPackSetting;
 use Fywolf\VcenterVps\Services\VCenterService;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
@@ -47,12 +49,27 @@ class VcenterPackSettingResource extends Resource
             } catch (Exception) {}
         }
 
+        // Packs come from the billing app over HTTP now, not from a local table.
+        // Same fallback the vCenter fields below use: when the remote list can't
+        // be fetched, accept the id by hand rather than blocking the form.
+        $packs = app(BillingClient::class)->packs();
+
         $components = [
-            Select::make('pack_id')
-                ->label('Billing Pack')
-                ->options(Pack::all()->mapWithKeys(fn (Pack $p) => [$p->id => $p->name]))
-                ->required()
-                ->searchable(),
+            empty($packs)
+                ? TextInput::make('billing_pack_id')
+                    ->label('Billing Pack ID')
+                    ->numeric()
+                    ->required()
+                    ->helperText('Billing app unreachable — enter the pack id manually. Check VCENTER_BILLING_URL and VCENTER_BILLING_TOKEN.')
+                : Select::make('billing_pack_id')
+                    ->label('Billing Pack')
+                    ->options($packs)
+                    ->required()
+                    ->searchable()
+                    ->live()
+                    // Cached so the pack settings list renders without a round trip.
+                    ->afterStateUpdated(fn ($state, Set $set) => $set('pack_name', $packs[$state] ?? null)),
+            Hidden::make('pack_name'),
         ];
 
         if (!$credentialsConfigured) {

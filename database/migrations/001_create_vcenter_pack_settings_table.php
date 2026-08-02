@@ -23,8 +23,6 @@ return new class extends Migration
             $table->unsignedInteger('default_memory_mb')->default(2048);
             $table->unsignedInteger('default_disk_gb')->default(20);
             $table->timestamps();
-
-            $table->foreign('pack_id')->references('id')->on('billing_packs')->cascadeOnDelete();
         });
     }
 

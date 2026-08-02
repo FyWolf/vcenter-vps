@@ -3,7 +3,8 @@
 namespace Fywolf\VcenterVps\Filament\Admin\Resources\VpsInstances;
 
 use Exception;
-use Fywolf\Billing\Enums\OrderStatus;
+use Fywolf\VcenterVps\Billing\BillingClient;
+use Fywolf\VcenterVps\Billing\Enums\OrderStatus;
 use Fywolf\VcenterVps\Filament\Admin\Resources\VpsInstances\Pages\ListVpsInstances;
 use Fywolf\VcenterVps\Models\VpsInstance;
 use Fywolf\VcenterVps\Services\VCenterService;
@@ -39,15 +40,22 @@ class VpsInstanceResource extends Resource
                     ->label('IP Address')
                     ->placeholder('—')
                     ->copyable(),
-                TextColumn::make('order.id')
+                // These four used to read through the `order` relation. Billing's
+                // tables are not in this database any more, so they are local
+                // columns that billing refreshes via the sync webhook.
+                TextColumn::make('billing_order_id')
                     ->label('Order')
                     ->sortable()
-                    ->url(fn (VpsInstance $instance) => \Fywolf\Billing\Filament\Admin\Resources\Orders\OrderResource::getUrl('index') . '?tableSearch=' . $instance->order_id),
-                TextColumn::make('order.customer')
+                    ->searchable()
+                    ->url(fn (VpsInstance $instance) => app(BillingClient::class)->orderUrl($instance->billing_order_id))
+                    ->openUrlInNewTab(),
+                TextColumn::make('customer_label')
                     ->label('Customer')
-                    ->formatStateUsing(fn ($state) => $state?->getLabel() ?? '—'),
-                TextColumn::make('order.packPrice.pack.name')
-                    ->label('Pack'),
+                    ->searchable()
+                    ->placeholder('—'),
+                TextColumn::make('pack_name')
+                    ->label('Pack')
+                    ->placeholder('—'),
                 TextColumn::make('install_status')
                     ->label('Install')
                     ->badge()
@@ -77,11 +85,15 @@ class VpsInstanceResource extends Resource
                         'SUSPENDED'   => 'Suspended',
                         default       => 'Unknown',
                     }),
-                TextColumn::make('order.status')
+                TextColumn::make('order_status')
                     ->label('Order Status')
                     ->badge()
+                    // A status this plugin does not model still renders, in grey,
+                    // rather than disappearing or throwing.
+                    ->color(fn (?string $state) => OrderStatus::tryFrom($state ?? '')?->color() ?? 'gray')
+                    ->formatStateUsing(fn (?string $state) => OrderStatus::tryFrom($state ?? '')?->label() ?? ($state ?: '—'))
                     ->sortable(),
-                TextColumn::make('order.expires_at')
+                TextColumn::make('order_expires_at')
                     ->label('Expires')
                     ->since()
                     ->placeholder('—'),

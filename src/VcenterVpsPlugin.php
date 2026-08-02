@@ -11,6 +11,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Panel;
 use Filament\Schemas\Components\Fieldset;
+use Fywolf\VcenterVps\Billing\BillingClient;
 use Fywolf\VcenterVps\Services\VCenterService;
 
 class VcenterVpsPlugin implements HasPluginSettings, Plugin
@@ -77,6 +78,23 @@ class VcenterVpsPlugin implements HasPluginSettings, Plugin
                 ->schema([
                     $this->buildIsoDatastoreField(),
                 ]),
+
+            Fieldset::make('Billing App')
+                ->schema([
+                    TextInput::make('billing_url')
+                        ->label('Billing App URL')
+                        ->url()
+                        ->default(fn () => config('vcenter-vps.billing.url'))
+                        ->placeholder('https://billing.example.com')
+                        ->helperText('Billing left the panel; the plugin now talks to it over HTTP.'),
+
+                    TextInput::make('billing_token')
+                        ->label('API Token')
+                        ->password()
+                        ->revealable()
+                        ->default(fn () => config('vcenter-vps.billing.token'))
+                        ->helperText('Authenticates this plugin when it calls billing (pack lookups, audit events). The other direction uses an application API key scoped to "vps" — nothing to set here.'),
+                ]),
         ];
     }
 
@@ -122,7 +140,14 @@ class VcenterVpsPlugin implements HasPluginSettings, Plugin
         if (isset($data['vcenter_insecure']))          $env['VCENTER_INSECURE']         = $data['vcenter_insecure'];
         if (isset($data['vcenter_iso_datastore_id']))  $env['VCENTER_ISO_DATASTORE_ID'] = $data['vcenter_iso_datastore_id'];
 
+        if (!empty($data['billing_url']))   $env['VCENTER_BILLING_URL']   = $data['billing_url'];
+        if (!empty($data['billing_token'])) $env['VCENTER_BILLING_TOKEN'] = $data['billing_token'];
+
         $this->writeToEnvironment($env);
+
+        // The pack dropdown is cached for five minutes; a URL or token change
+        // should take effect on the next page load, not after the TTL.
+        app(BillingClient::class)->forgetCachedPacks();
 
         Notification::make()
             ->title('vCenter settings saved')
