@@ -2,12 +2,11 @@
 
 namespace Fywolf\VcenterVps\Filament\App\Resources\VpsInstances;
 
+use App\Enums\TablerIcon;
 use BackedEnum;
 use Filament\Pages\Enums\SubNavigationPosition;
 use Filament\Resources\Pages\Page;
 use Filament\Resources\Resource;
-use Filament\Tables\Columns\ViewColumn;
-use Filament\Tables\Table;
 use Fywolf\VcenterVps\Filament\App\Resources\VpsInstances\Pages\BootVps;
 use Fywolf\VcenterVps\Filament\App\Resources\VpsInstances\Pages\ListVps;
 use Fywolf\VcenterVps\Filament\App\Resources\VpsInstances\Pages\SettingsVps;
@@ -16,11 +15,19 @@ use Fywolf\VcenterVps\Models\VpsInstance;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * The customer's VPS list, in the panel's `app` panel beside their game servers.
+ *
+ * Shaped after the panel's own `App\Filament\App\Resources\Servers\ServerResource`:
+ * the resource stays thin and the table lives on {@see ListVps}, which is where
+ * the panel puts it. That is not just tidiness — it is what lets the list honour
+ * the same grid/table dashboard preference and reuse the panel's own columns.
+ */
 class VpsInstanceResource extends Resource
 {
     protected static ?string $model = VpsInstance::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'tabler-server';
+    protected static string|BackedEnum|null $navigationIcon = TablerIcon::Server;
 
     protected static ?string $navigationLabel = 'My VPS';
 
@@ -42,9 +49,23 @@ class VpsInstanceResource extends Resource
         return auth()->check();
     }
 
+    /**
+     * Ownership is checked on the record itself, not merely "is signed in".
+     * `getEloquentQuery()` already scopes the list, but a record resolved by id
+     * on a detail page has to be checked on its own.
+     */
     public static function canView(Model $record): bool
     {
-        return auth()->check();
+        return $record instanceof VpsInstance
+            && $record->user_id !== null
+            && $record->user_id === auth()->id();
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        $count = static::getEloquentQuery()->count();
+
+        return $count > 0 ? (string) $count : null;
     }
 
     public static function shouldRegisterNavigation(): bool
@@ -54,8 +75,8 @@ class VpsInstanceResource extends Resource
 
     /**
      * Scoped entirely on local columns — see VpsInstance::scopeOwnedBy(). There
-     * is nothing to eager-load any more: the pack name and order status the card
-     * renders are columns on the instance itself, copied there by billing.
+     * is nothing to eager-load: the pack name, order status and purchased spec
+     * are columns on the instance, copied there by billing.
      */
     public static function getEloquentQuery(): Builder
     {
@@ -73,23 +94,6 @@ class VpsInstanceResource extends Resource
             BootVps::class,
             SettingsVps::class,
         ]);
-    }
-
-    public static function table(Table $table): Table
-    {
-        return $table
-            ->columns([
-                ViewColumn::make('vps_card')
-                    ->view('vcenter-vps::columns.vps-card')
-                    ->searchable(['name']),
-            ])
-            ->recordUrl(fn (VpsInstance $record) => ViewVps::getUrl(['record' => $record]))
-            ->contentGrid(['default' => 1, 'md' => 2])
-            ->paginated([10, 20, 50])
-            ->defaultPaginationPageOption(10)
-            ->emptyStateIcon('tabler-server')
-            ->emptyStateHeading('No VPS instances')
-            ->emptyStateDescription('You don\'t have any active VPS instances yet.');
     }
 
     public static function getPages(): array

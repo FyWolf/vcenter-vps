@@ -75,7 +75,14 @@ class VpsInstance extends Model
     public function scopeOwnedBy(Builder $query, int $userId): Builder
     {
         return $query->where('user_id', $userId)
-            ->whereIn('order_status', OrderStatus::listable());
+            ->where(fn (Builder $q) => $q
+                // A null status means billing has not synced this instance yet,
+                // not that the order is dead. Hiding on null makes a missed sync
+                // look to the customer like their machine was taken away, which
+                // is worse than briefly showing one whose order has lapsed — the
+                // VM's own power state already limits that case.
+                ->whereNull('order_status')
+                ->orWhereIn('order_status', OrderStatus::listable()));
     }
 
     public function isRunning(): bool
