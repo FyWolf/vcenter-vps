@@ -3,9 +3,12 @@
 namespace Fywolf\VcenterVps;
 
 use App\Contracts\Plugins\HasPluginSettings;
+use App\Enums\TablerIcon;
+use App\Filament\App\Resources\Servers\ServerResource;
 use App\Traits\EnvironmentWriterTrait;
 use Exception;
 use Filament\Contracts\Plugin;
+use Filament\Navigation\NavigationItem;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -41,6 +44,46 @@ class VcenterVpsPlugin implements HasPluginSettings, Plugin
             plugin_path($this->getId(), "src/Filament/$id/Widgets"),
             "Fywolf\\VcenterVps\\Filament\\$id\\Widgets"
         );
+
+        if ($panel->getId() === 'app') {
+            $this->openUpAppPanelNavigation($panel);
+        }
+    }
+
+    /**
+     * Make the VPS list reachable at all.
+     *
+     * The app panel ships as a single page: `AppPanelProvider` calls
+     * `->navigation(false)`, and `ServerResource` pins itself to slug `/` with
+     * `$shouldRegisterNavigation = false`. A second resource registered into that
+     * panel therefore routes correctly and is completely unreachable — there is
+     * no navigation to click, and the customer's home page is the game server
+     * list. That is why the VPS list appeared to vanish.
+     *
+     * Turning navigation on gives every resource its entry back, including this
+     * plugin's "My VPS". The server list needs one added by hand, since its own
+     * is switched off.
+     *
+     * **Not `ServerResource::embedServerList()`**, which looks like the intended
+     * hook and is a trap here: it moves the server list off `/` onto its own
+     * slug, and with no dashboard page registered and no `routes/web.php` in the
+     * panel, nothing would be left serving the site root.
+     *
+     * Note the boolean must be literal. `navigation()` types its argument as
+     * `Closure|bool $builder` and treats a closure as a *navigation builder* that
+     * replaces the whole menu — not as a condition.
+     */
+    private function openUpAppPanelNavigation(Panel $panel): void
+    {
+        $panel->navigation(true);
+
+        $panel->navigationItems([
+            NavigationItem::make('My Servers')
+                ->icon(TablerIcon::BrandDocker)
+                ->sort(1)
+                ->url(fn () => ServerResource::getUrl(panel: 'app'))
+                ->isActiveWhen(fn () => request()->url() === ServerResource::getUrl(panel: 'app')),
+        ]);
     }
 
     public function boot(Panel $panel): void {}
