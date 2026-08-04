@@ -12,6 +12,7 @@ use Fywolf\VcenterVps\Filament\App\Resources\VpsInstances\Pages\ListVps;
 use Fywolf\VcenterVps\Filament\App\Resources\VpsInstances\Pages\SettingsVps;
 use Fywolf\VcenterVps\Filament\App\Resources\VpsInstances\Pages\ViewVps;
 use Fywolf\VcenterVps\Models\VpsInstance;
+use Fywolf\VcenterVps\Models\VpsInstanceUser;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -56,9 +57,16 @@ class VpsInstanceResource extends Resource
      */
     public static function canView(Model $record): bool
     {
-        return $record instanceof VpsInstance
-            && $record->user_id !== null
-            && $record->user_id === auth()->id();
+        if (! $record instanceof VpsInstance) {
+            return false;
+        }
+
+        // Owner *or* somebody it was shared with. Seeing the machine is the
+        // baseline; what they can actually do with it is checked per action, and
+        // the destructive pages (BootVps, SettingsVps) check ownership on their
+        // own rather than trusting this.
+        return $record->isOwnedBy(auth()->id())
+            || $record->collaborators->contains('user_id', auth()->id());
     }
 
     public static function getNavigationBadge(): ?string
@@ -84,16 +92,38 @@ class VpsInstanceResource extends Resource
             return parent::getEloquentQuery()->whereRaw('1 = 0');
         }
 
-        return parent::getEloquentQuery()->ownedBy((int) auth()->id());
+        // `accessibleBy`, not `ownedBy`: a shared machine has to appear in the
+        // list, or a collaborator has access they can never reach.
+        return parent::getEloquentQuery()
+            ->accessibleBy((int) auth()->id())
+            ->with('collaborators');
     }
 
+    /**
+     * Only the tabs this person can actually open.
+     *
+     * Both `BootVps` and `SettingsVps` now refuse a collaborator who lacks the
+     * grant, so listing them unconditionally would show tabs that 403 — which
+     * reads as the panel being broken rather than as a permission they were
+     * never given.
+     */
     public static function getRecordSubNavigation(Page $page): array
     {
-        return $page->generateNavigationItems([
-            ViewVps::class,
-            BootVps::class,
-            SettingsVps::class,
-        ]);
+        $record = $page->getRecord();
+        $userId = auth()->id();
+
+        $pages = [ViewVps::class];
+
+        if ($record instanceof VpsInstance && $record->isOwnedBy($userId)) {
+            // Reinstalling and changing boot media are not grantable at all.
+            $pages[] = BootVps::class;
+        }
+
+        if ($record instanceof VpsInstance && $record->userCan($userId, VpsInstanceUser::SETTINGS)) {
+            $pages[] = SettingsVps::class;
+        }
+
+        return $page->generateNavigationItems($pages);
     }
 
     public static function getPages(): array

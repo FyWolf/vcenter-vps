@@ -18,6 +18,7 @@ use Filament\Tables\Columns\ViewColumn;
 use Filament\Tables\Table;
 use Fywolf\VcenterVps\Filament\App\Resources\VpsInstances\VpsInstanceResource;
 use Fywolf\VcenterVps\Models\VpsInstance;
+use Fywolf\VcenterVps\Models\VpsInstanceUser;
 use Fywolf\VcenterVps\Services\VCenterService;
 use Livewire\Attributes\On;
 
@@ -155,7 +156,8 @@ class ListVps extends ListRecords
                 ->label('Start')
                 ->color('primary')
                 ->icon(TablerIcon::PlayerPlayFilled)
-                ->visible(fn (VpsInstance $instance) => !$instance->isRunning())
+                ->visible(fn (VpsInstance $instance) => !$instance->isRunning()
+                    && $instance->userCan(auth()->id(), VpsInstanceUser::POWER))
                 ->dispatch('vpsPowerAction', fn (VpsInstance $instance) => [
                     'instance' => $instance, 'action' => 'start',
                 ]),
@@ -164,7 +166,8 @@ class ListVps extends ListRecords
                 ->label('Restart')
                 ->color('gray')
                 ->icon(TablerIcon::Reload)
-                ->visible(fn (VpsInstance $instance) => $instance->isRunning())
+                ->visible(fn (VpsInstance $instance) => $instance->isRunning()
+                    && $instance->userCan(auth()->id(), VpsInstanceUser::POWER))
                 ->requiresConfirmation()
                 ->dispatch('vpsPowerAction', fn (VpsInstance $instance) => [
                     'instance' => $instance, 'action' => 'restart',
@@ -174,7 +177,8 @@ class ListVps extends ListRecords
                 ->label('Stop')
                 ->color('danger')
                 ->icon(TablerIcon::PlayerStopFilled)
-                ->visible(fn (VpsInstance $instance) => $instance->isRunning())
+                ->visible(fn (VpsInstance $instance) => $instance->isRunning()
+                    && $instance->userCan(auth()->id(), VpsInstanceUser::POWER))
                 ->requiresConfirmation()
                 ->dispatch('vpsPowerAction', fn (VpsInstance $instance) => [
                     'instance' => $instance, 'action' => 'stop',
@@ -184,7 +188,8 @@ class ListVps extends ListRecords
                 ->label('Console')
                 ->color('primary')
                 ->icon(TablerIcon::Terminal2)
-                ->visible(fn (VpsInstance $instance) => $instance->isRunning())
+                ->visible(fn (VpsInstance $instance) => $instance->isRunning()
+                    && $instance->userCan(auth()->id(), VpsInstanceUser::CONSOLE))
                 ->url(fn (VpsInstance $instance) => route('vcenter-vps.console', $instance->id))
                 ->openUrlInNewTab(),
 
@@ -210,7 +215,21 @@ class ListVps extends ListRecords
     #[On('vpsPowerAction')]
     public function vpsPowerAction(VpsInstance $instance, string $action): void
     {
-        if ($instance->user_id === null || $instance->user_id !== auth()->id()) {
+        // Re-checked against the *permission*, not merely against access: a
+        // collaborator can hold console rights without power rights, and this
+        // event is client-originated so the button being hidden proves nothing.
+        //
+        // `refresh` is exempt because it only re-reads the power state, and
+        // somebody with console access needs to know whether the machine is on.
+        // Requiring POWER for it would make the console useless to exactly the
+        // collaborator it was granted to.
+        $required = $action === 'refresh' ? null : VpsInstanceUser::POWER;
+
+        if ($required !== null && ! $instance->userCan(auth()->id(), $required)) {
+            abort(403);
+        }
+
+        if ($required === null && ! VpsInstanceResource::canView($instance)) {
             abort(403);
         }
 

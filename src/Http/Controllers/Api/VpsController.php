@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use Fywolf\VcenterVps\Billing\Data\OrderData;
 use Fywolf\VcenterVps\Http\Requests\ApplyVpsPlanRequest;
 use Fywolf\VcenterVps\Http\Requests\ProvisionVpsRequest;
+use Fywolf\VcenterVps\Http\Requests\StoreVpsCollaboratorRequest;
 use Fywolf\VcenterVps\Http\Requests\VpsLifecycleRequest;
 use Fywolf\VcenterVps\Jobs\ProvisionVpsJob;
 use Fywolf\VcenterVps\Models\VpsInstance;
+use Fywolf\VcenterVps\Models\VpsInstanceUser;
 use Fywolf\VcenterVps\Provisioners\VcenterProvisioner;
 use Illuminate\Http\JsonResponse;
 
@@ -83,6 +85,64 @@ class VpsController extends Controller
         $this->provisioner->terminate($order);
 
         return response()->json(['status' => 'terminated']);
+    }
+
+    /**
+     * Share this VPS with another panel user, or change what they can do.
+     *
+     * Billing owns the invitation — who was asked, by whom, with what, and when
+     * it ends — so this is the only way a row appears in `vps_instance_users`.
+     * The panel offers no screen for it, which is what keeps the two sides from
+     * drifting.
+     *
+     * Idempotent per (instance, user): billing retries a request it never got a
+     * response to, and re-sending must not fail on the unique key.
+     */
+    public function storeCollaborator(StoreVpsCollaboratorRequest $request, int $order): JsonResponse
+    {
+        $instance = $this->provisioner->findInstance($order);
+
+        if (!$instance) {
+            return response()->json(['message' => 'No VPS instance for that order.'], 404);
+        }
+
+        $userId = (int) $request->validated('user_id');
+
+        // The owner already has everything. A row for them would be a second,
+        // weaker statement about their own machine — and `userCan()` short
+        // circuits on ownership anyway, so it could only ever mislead.
+        if ($instance->user_id === $userId) {
+            return response()->json(['message' => 'That user already owns this VPS.'], 422);
+        }
+
+        $collaborator = VpsInstanceUser::updateOrCreate(
+            ['vps_instance_id' => $instance->id, 'user_id' => $userId],
+            ['permissions' => VpsInstanceUser::clean($request->validated('permissions', []))],
+        );
+
+        return response()->json([
+            'user_id'     => $userId,
+            'permissions' => $collaborator->permissions,
+        ], $collaborator->wasRecentlyCreated ? 201 : 200);
+    }
+
+    /**
+     * Stop sharing. Already gone is a success — billing retries revocation on
+     * termination and on account deletion, and both must be repeatable.
+     */
+    public function destroyCollaborator(VpsLifecycleRequest $request, int $order, int $user): JsonResponse
+    {
+        $instance = $this->provisioner->findInstance($order);
+
+        if (!$instance) {
+            return response()->json(['status' => 'removed']);
+        }
+
+        VpsInstanceUser::where('vps_instance_id', $instance->id)
+            ->where('user_id', $user)
+            ->delete();
+
+        return response()->json(['status' => 'removed']);
     }
 
     /**

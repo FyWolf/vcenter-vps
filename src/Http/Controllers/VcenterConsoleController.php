@@ -3,6 +3,7 @@
 namespace Fywolf\VcenterVps\Http\Controllers;
 
 use Fywolf\VcenterVps\Models\VpsInstance;
+use Fywolf\VcenterVps\Models\VpsInstanceUser;
 use Fywolf\VcenterVps\Services\VCenterService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
@@ -59,11 +60,26 @@ class VcenterConsoleController extends Controller
         return response()->json(['url' => $this->buildProxiedUrl($request, $vpsInstance->vm_id)]);
     }
 
+    /**
+     * The console is reachable by the owner, or by a collaborator granted it.
+     *
+     * `accessibleBy` widens *who*, and `userCan` narrows to *what* — a
+     * collaborator may hold power rights without console rights, and the console
+     * is the one that puts a keyboard on the machine. Both are needed: the scope
+     * alone would let anybody the VPS is shared with open a terminal on it.
+     */
     private function authorizedInstance(Request $request, int $instance): VpsInstance
     {
-        return VpsInstance::query()
-            ->ownedBy((int) $request->user()->id)
+        $vpsInstance = VpsInstance::query()
+            ->accessibleBy((int) $request->user()->id)
             ->findOrFail($instance);
+
+        abort_unless(
+            $vpsInstance->userCan((int) $request->user()->id, VpsInstanceUser::CONSOLE),
+            403,
+        );
+
+        return $vpsInstance;
     }
 
     private function buildProxiedUrl(Request $request, string $vmId): string

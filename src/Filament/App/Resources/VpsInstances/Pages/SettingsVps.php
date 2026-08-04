@@ -14,6 +14,7 @@ use Filament\Resources\Pages\Page;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Fywolf\VcenterVps\Filament\App\Resources\VpsInstances\VpsInstanceResource;
+use Fywolf\VcenterVps\Models\VpsInstanceUser;
 
 /**
  * @property \Fywolf\VcenterVps\Models\VpsInstance $record
@@ -31,9 +32,23 @@ class SettingsVps extends Page implements HasForms
 
     public ?string $name = null;
 
+    /**
+     * Renaming needs the `settings` grant, not merely access.
+     *
+     * Checked here rather than relying on `VpsInstanceResource::canView()`,
+     * which now admits collaborators — this page and {@see BootVps} were written
+     * when access and ownership were the same thing, and would otherwise have
+     * been opened by that widening without anyone editing them.
+     */
     public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
+
+        abort_unless(
+            $this->record->userCan(auth()->id(), VpsInstanceUser::SETTINGS),
+            403,
+        );
+
         $this->name = $this->record->name;
         $this->form->fill();
     }

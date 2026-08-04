@@ -74,6 +74,16 @@ class VcenterVpsServiceProvider extends ServiceProvider
 
                 Route::delete('/{order}', [VpsController::class, 'destroy'])
                     ->whereNumber('order')->name('vcenter-vps.api.destroy');
+
+                // Collaborators. Billing owns the invitation and is the only
+                // writer — the panel deliberately offers no screen for these, so
+                // there is nothing to reconcile between the two sides.
+                Route::post('/{order}/users', [VpsController::class, 'storeCollaborator'])
+                    ->whereNumber('order')->name('vcenter-vps.api.users.store');
+
+                Route::delete('/{order}/users/{user}', [VpsController::class, 'destroyCollaborator'])
+                    ->whereNumber('order')->whereNumber('user')
+                    ->name('vcenter-vps.api.users.destroy');
             });
     }
 

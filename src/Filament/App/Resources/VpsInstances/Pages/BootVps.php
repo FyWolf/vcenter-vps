@@ -35,9 +35,24 @@ class BootVps extends Page implements HasForms
     public ?string $bootOrder = 'disk_first';
     public array $availableIsos = [];
 
+    /**
+     * Owner only, and deliberately not grantable.
+     *
+     * Changing boot media or reinstalling destroys what is on the machine.
+     * Whoever is paying for it should be the only one who can, so there is no
+     * permission that opens this — `VpsInstanceUser::grantable()` has no case
+     * for it, and this check does not consult the list at all.
+     *
+     * Explicit here because `VpsInstanceResource::canView()` now admits
+     * collaborators; without it, widening that would have handed them the
+     * reinstall page.
+     */
     public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
+
+        abort_unless($this->record->isOwnedBy(auth()->id()), 403);
+
         $this->loadAvailableIsos();
         $this->bootOrder = $this->detectBootOrder();
         $this->form->fill();
