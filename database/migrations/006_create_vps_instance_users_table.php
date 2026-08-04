@@ -26,19 +26,35 @@ use Illuminate\Support\Facades\Schema;
  * `user_id` is a plain column with no foreign key to `users`, matching the rest
  * of this plugin after the billing split: authorization must keep working from
  * local columns even when other systems are unreachable.
+ *
+ * **Every key here is a 4-byte `int unsigned`, not Laravel's default `bigint`.**
+ * `vps_instances.id` is `increments()`, as is every other table in this plugin
+ * and in Pelican itself, and MariaDB refuses a foreign key whose column is a
+ * different width from the one it references — errno 150, "Foreign key
+ * constraint is incorrectly formed", which names neither column. So `id()`,
+ * `foreignId()` and `unsignedBigInteger()` are all wrong in this codebase; use
+ * `increments()` and `unsignedInteger()`.
  */
 return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('vps_instance_users', function (Blueprint $table) {
-            $table->id();
+        // The first release of this migration used `foreignId()` and failed on
+        // the constraint *after* MariaDB had already created the table, leaving
+        // it behind un-recorded — so a fixed re-run would hit "table already
+        // exists" and never get past it. Dropping first is safe: a table that
+        // was never successfully migrated cannot hold a row anyone wrote.
+        Schema::dropIfExists('vps_instance_users');
 
-            $table->foreignId('vps_instance_id')
-                ->constrained('vps_instances')
+        Schema::create('vps_instance_users', function (Blueprint $table) {
+            $table->increments('id');
+
+            $table->unsignedInteger('vps_instance_id');
+            $table->foreign('vps_instance_id')
+                ->references('id')->on('vps_instances')
                 ->cascadeOnDelete();
 
-            $table->unsignedBigInteger('user_id');
+            $table->unsignedInteger('user_id');
             $table->json('permissions');
 
             $table->timestamps();
