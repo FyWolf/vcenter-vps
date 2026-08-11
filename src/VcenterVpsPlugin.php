@@ -88,6 +88,30 @@ class VcenterVpsPlugin implements HasPluginSettings, Plugin
 
     public function boot(Panel $panel): void {}
 
+    /**
+     * Current values for the settings slide-over.
+     *
+     * The panel passes this to `->fillForm()`, which *replaces* the schema's own
+     * `->default()` values rather than merging with them — so the keys have to be
+     * the field names on `getSettingsForm()`, not the config keys underneath. A
+     * bare `return config('vcenter-vps')` compiles, fills nothing, and renders an
+     * empty form that saves blanks over a working vCenter connection.
+     *
+     * @return array<string, mixed>
+     */
+    public function getSettingsFormData(): array
+    {
+        return [
+            'vcenter_host'             => config('vcenter-vps.host'),
+            'vcenter_user'             => config('vcenter-vps.user'),
+            'vcenter_password'         => config('vcenter-vps.password'),
+            'vcenter_insecure'         => config('vcenter-vps.insecure') ? '1' : '0',
+            'vcenter_iso_datastore_id' => config('vcenter-vps.iso_datastore_id'),
+            'billing_url'              => config('vcenter-vps.billing.url'),
+            'billing_token'            => config('vcenter-vps.billing.token'),
+        ];
+    }
+
     public function getSettingsForm(): array
     {
         return [
